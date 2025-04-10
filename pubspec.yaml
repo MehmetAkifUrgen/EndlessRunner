@@ -1,0 +1,30 @@
+name: flutter_application_baris
+description: 3D sonsuz koşucu oyunu.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.11.0
+  flutter_cube: ^0.1.1
+  shared_preferences: ^2.2.1
+  provider: ^6.0.5
+  audioplayers: ^5.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/cube/
+    - assets/sphere/
+    - assets/models/
+    - assets/textures/
