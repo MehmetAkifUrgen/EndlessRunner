@@ -14,12 +14,30 @@ import '../models/collectible.dart';
 import 'dart:math';
 
 class RunnerGame extends FlameGame with HasCollisionDetection {
-  late PlayerComponent player;
+  PlayerComponent? _player;
+  // PlayerComponent'i getter üzerinden güvenli şekilde sağlayalım
+  PlayerComponent get player {
+    if (_player == null && hasLayout) {
+      _player = PlayerComponent(
+        position: Vector2(size.x * 0.2, size.y - groundHeight),
+        game: this,
+      );
+      add(_player!);
+    }
+
+    return _player ??
+        PlayerComponent(
+          position: Vector2(0, 0),
+          game: this,
+        );
+  }
+
   late TextComponent scoreText;
   late Timer obstacleSpawnTimer;
   late Timer collectibleSpawnTimer;
 
   int score = 0;
+  int highScore = 0;
   int lives = 3;
   bool isGameOver = false;
   bool isPaused = false;
@@ -49,6 +67,12 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   bool hasSlowMotion = false;
   double slowMotionTimer = 0;
 
+  // GameState erişimi için context
+  BuildContext? context;
+
+  // onGameReady callback
+  Function(RunnerGame game)? onGameReady;
+
   @override
   Future<void> onLoad() async {
     // Arkaplan - Gradient ile zenginleştirme
@@ -76,18 +100,20 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     // Bulutlar (dekortif elementler)
     _addClouds();
 
-    // Oyuncu
-    player = PlayerComponent(
-      position: Vector2(size.x * 0.2, size.y - groundHeight - 30),
-      game: this,
-    );
-    // Oyuncunun başlangıçta yerde olduğunu garantilemek için
-    player.isOnGround = true;
-    player.isJumping = false;
-    add(player);
+    // Oyuncu - önceden oluşturulmamışsa oluştur
+    if (_player == null) {
+      _player = PlayerComponent(
+        position: Vector2(size.x * 0.2, size.y - groundHeight),
+        game: this,
+      );
+      _player!.isOnGround = true;
+      _player!.isJumping = false;
+      _player!.position.y = size.y - groundHeight;
+      add(_player!);
 
-    print(
-        "Player başlangıç konumu: ${player.position}, isOnGround: ${player.isOnGround}");
+      print(
+          "Player başlangıç konumu: ${_player!.position}, isOnGround: ${_player!.isOnGround}");
+    }
 
     // Skor metni - Gölgeli ve daha görünür
     scoreText = TextComponent(
@@ -118,6 +144,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       onTick: _spawnCollectible,
       repeat: true,
     );
+
+    // onGameReady callback'i çağır
+    onGameReady?.call(this);
 
     return super.onLoad();
   }
@@ -434,9 +463,8 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
       position.y += velocityY * dt;
 
       // Yere değme kontrolü
-      if (position.y >=
-          game.size.y - game.groundHeight - height + (size.y * 0.1)) {
-        position.y = game.size.y - game.groundHeight - height + (size.y * 0.1);
+      if (position.y >= game.size.y - game.groundHeight) {
+        position.y = game.size.y - game.groundHeight;
         isJumping = false;
         isOnGround = true;
         canDoubleJump = true; // Yere değdiğinde çift zıplama hakkı yenilenir
@@ -446,9 +474,18 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
       }
     } else {
       // Oyuncu yerde ama pozisyonu zemin seviyesinde değilse düzelt
-      if (position.y <
-          game.size.y - game.groundHeight - height + (size.y * 0.1)) {
-        position.y = game.size.y - game.groundHeight - height + (size.y * 0.1);
+      if (position.y != game.size.y - game.groundHeight) {
+        position.y = game.size.y - game.groundHeight;
+      }
+
+      // Koşma animasyonu için bacak hareketi
+      if (!isSliding && !isChargingJump) {
+        final runningTime = game.gameTime % 0.5;
+        if (runningTime < 0.25) {
+          scale = Vector2(1.0, 1.0 + runningTime * 0.1);
+        } else {
+          scale = Vector2(1.0, 1.0 + (0.5 - runningTime) * 0.1);
+        }
       }
     }
 
@@ -531,12 +568,13 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
         "executeJump çağrıldı! isOnGround: $isOnGround, isChargingJump: $isChargingJump");
     if (isOnGround && !isSliding) {
       // Şarj süresine göre zıplama hızını hesapla
-      double jumpVelocity = minJumpVelocity;
+      double jumpVelocity = -400; // Varsayılan zıplama gücü
 
       if (isChargingJump) {
         double chargePercent = jumpChargeDuration / maxChargeTime;
-        jumpVelocity = minJumpVelocity +
-            (maxJumpVelocity - minJumpVelocity) * chargePercent;
+        // Basılı tutma süresine göre -400 ile -800 arasında değer
+        jumpVelocity = -400 - (chargePercent * 400);
+        print("Basılı tutma süresi: $jumpChargeDuration, Güç: $jumpVelocity");
       }
 
       print("Zıplama hızı: $jumpVelocity");
@@ -624,10 +662,11 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
 
   @override
   void render(Canvas canvas) {
-    // Oyuncu görsel efekti - koşan adam şekli
-    final bodyRect = Rect.fromLTWH(5, 0, width - 10, height * 0.6);
-    final headRadius = width * 0.3;
-    final headCenter = Offset(width * 0.5, height * 0.25);
+    // Oyuncuyu insan şeklinde çiz
+    final bodyRect =
+        Rect.fromLTWH(width * 0.25, height * 0.3, width * 0.5, height * 0.4);
+    final headRadius = width * 0.2;
+    final headCenter = Offset(width * 0.5, height * 0.2);
 
     // Gövde
     canvas.drawRect(bodyRect, playerPaint);
@@ -635,14 +674,82 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
     canvas.drawCircle(headCenter, headRadius, playerPaint);
 
     // Koşma animasyonu için bacaklar
-    final legMovement = (game.score / 10).floor() % 2 == 0 ? 10.0 : -10.0;
-    final leg1 = RRect.fromLTRBR(
-        width * 0.3, height * 0.6, width * 0.45, height, Radius.circular(5));
-    final leg2 = RRect.fromLTRBR(width * 0.55, height * 0.6, width * 0.7,
-        height - legMovement, Radius.circular(5));
+    final legOffset = isSliding ? 0.0 : math.sin(game.gameTime * 10) * 5.0;
 
-    canvas.drawRRect(leg1, playerPaint);
-    canvas.drawRRect(leg2, playerPaint);
+    // Sol bacak
+    final leftLeg = RRect.fromLTRBR(width * 0.3, height * 0.7, width * 0.4,
+        height - legOffset, Radius.circular(5));
+
+    // Sağ bacak
+    final rightLeg = RRect.fromLTRBR(width * 0.6, height * 0.7, width * 0.7,
+        height + legOffset, Radius.circular(5));
+
+    // Kollar
+    final leftArm = RRect.fromLTRBR(width * 0.15, height * 0.35, width * 0.25,
+        height * 0.6 - legOffset * 0.5, Radius.circular(5));
+
+    final rightArm = RRect.fromLTRBR(width * 0.75, height * 0.35, width * 0.85,
+        height * 0.6 + legOffset * 0.5, Radius.circular(5));
+
+    canvas.drawRRect(leftLeg, playerPaint);
+    canvas.drawRRect(rightLeg, playerPaint);
+    canvas.drawRRect(leftArm, playerPaint);
+    canvas.drawRRect(rightArm, playerPaint);
+
+    // Yüz detayları (gözler)
+    final eyePaint = Paint()..color = Colors.white;
+    canvas.drawCircle(
+        Offset(
+            headCenter.dx - headRadius * 0.3, headCenter.dy - headRadius * 0.1),
+        headRadius * 0.15,
+        eyePaint);
+    canvas.drawCircle(
+        Offset(
+            headCenter.dx + headRadius * 0.3, headCenter.dy - headRadius * 0.1),
+        headRadius * 0.15,
+        eyePaint);
+
+    // Göz bebekleri
+    final pupilPaint = Paint()..color = Colors.black;
+    canvas.drawCircle(
+        Offset(
+            headCenter.dx - headRadius * 0.3, headCenter.dy - headRadius * 0.1),
+        headRadius * 0.05,
+        pupilPaint);
+    canvas.drawCircle(
+        Offset(
+            headCenter.dx + headRadius * 0.3, headCenter.dy - headRadius * 0.1),
+        headRadius * 0.05,
+        pupilPaint);
+
+    // Ağız
+    if (isChargingJump) {
+      // Zıplama sırasında stresli yüz
+      final mouthPath = Path();
+      mouthPath.moveTo(
+          headCenter.dx - headRadius * 0.2, headCenter.dy + headRadius * 0.3);
+      mouthPath.lineTo(
+          headCenter.dx + headRadius * 0.2, headCenter.dy + headRadius * 0.3);
+      canvas.drawPath(
+          mouthPath,
+          pupilPaint
+            ..strokeWidth = 2.0
+            ..style = PaintingStyle.stroke);
+    } else {
+      // Normal gülümseyen yüz
+      final mouthRect = Rect.fromCenter(
+          center: Offset(headCenter.dx, headCenter.dy + headRadius * 0.2),
+          width: headRadius * 0.6,
+          height: headRadius * 0.3);
+      canvas.drawArc(
+          mouthRect,
+          0,
+          math.pi,
+          false,
+          pupilPaint
+            ..strokeWidth = 2.0
+            ..style = PaintingStyle.stroke);
+    }
 
     super.render(canvas);
   }
@@ -1042,14 +1149,22 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       _checkGameState();
     });
 
-    // 5 saniye sonra tutorial'ı gizle
-    Future.delayed(Duration(seconds: 10), () {
+    // 3 saniye sonra tutorial'ı gizle
+    Future.delayed(Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
           _showTutorial = false;
         });
       }
     });
+
+    // Ekstra özellikleri onGameReady içinde ayarlayalım
+    _game.onGameReady = (game) {
+      // GameState'ten yüksek skoru al
+      final gameState = Provider.of<GameState>(context, listen: false);
+      _game.highScore = gameState.highScore;
+      _game.context = context;
+    };
   }
 
   @override
@@ -1079,29 +1194,46 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     return Scaffold(
       body: Stack(
         children: [
-          GestureDetector(
+          Listener(
             behavior: HitTestBehavior.opaque,
-            onTap: () {
-              if (!_isPaused && !_game.isGameOver) {
-                print("Basic tap jump!");
-                _game.player.jump();
+            onPointerDown: (PointerDownEvent event) {
+              if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+                print("Listener: Zıplama başlatılıyor!");
+                _game.player.startJumpCharge();
               }
             },
-            onVerticalDragStart: (details) {
-              if (!_isPaused && !_game.isGameOver) {
-                print("Kayma!");
-                _game.player.slide();
+            onPointerUp: (PointerUpEvent event) {
+              if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+                print("Listener: Zıplama gerçekleştiriliyor!");
+                _game.player.executeJump();
               }
             },
-            onHorizontalDragEnd: (details) {
-              if (!_isPaused &&
-                  !_game.isGameOver &&
-                  details.velocity.pixelsPerSecond.dx.abs() > 300) {
-                print("Dash!");
-                _game.player.dash();
+            onPointerCancel: (PointerCancelEvent event) {
+              if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+                print("Listener: Zıplama iptal ediliyor!");
+                _game.player.executeJump();
               }
             },
-            child: GameWidget(game: _game),
+            child: GestureDetector(
+              // Kayma hareketi için aşağı kaydırma
+              onVerticalDragStart: (details) {
+                if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+                  print("Kayma!");
+                  _game.player.slide();
+                }
+              },
+              // Dash hareketi için hızlı yatay kaydırma
+              onHorizontalDragEnd: (details) {
+                if (!_isPaused &&
+                    !_game.isGameOver &&
+                    _game.hasLayout &&
+                    details.velocity.pixelsPerSecond.dx.abs() > 300) {
+                  print("Dash!");
+                  _game.player.dash();
+                }
+              },
+              child: GameWidget(game: _game),
+            ),
           ),
 
           // HUD Elemanları
@@ -1141,22 +1273,27 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                             ),
                             child: Row(
                               children: [
-                                Flexible(
-                                  child: Container(
-                                    margin: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.green,
-                                          Colors.yellow,
-                                          Colors.red
-                                        ],
-                                      ),
+                                AnimatedContainer(
+                                  duration: Duration(milliseconds: 50),
+                                  margin: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.green,
+                                        Colors.yellow,
+                                        Colors.red
+                                      ],
                                     ),
-                                    height: 8,
-                                    width: 60,
                                   ),
+                                  height: 8,
+                                  width: _game.hasLayout &&
+                                          _game.player.isChargingJump
+                                      ? (_game.player.jumpChargeDuration /
+                                              _game.player.maxChargeTime) *
+                                          (MediaQuery.of(context).size.width -
+                                              150)
+                                      : 0,
                                 ),
                               ],
                             ),
@@ -1222,62 +1359,63 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                             Icons.attractions,
                             Colors.purple,
                             _game.magnetTimer,
+                            isSmallScreen,
                           ),
                         if (_game.hasShield)
                           _buildPowerUpIndicator(
                             Icons.shield,
                             Colors.blue,
                             _game.shieldTimer,
+                            isSmallScreen,
                           ),
                         if (_game.hasSlowMotion)
                           _buildPowerUpIndicator(
                             Icons.hourglass_bottom,
                             Colors.lightBlue,
                             _game.slowMotionTimer,
+                            isSmallScreen,
                           ),
+                      ],
+                    ),
+                  ),
+
+                // Tutorial yukarıda gösterilsin
+                if (_showTutorial)
+                  Container(
+                    margin: EdgeInsets.all(8),
+                    padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Kontroller:',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isSmallScreen ? 14 : 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '• Basılı Tut: Yüksekse zıpla\n'
+                          '• Aşağı Kaydır: Kayma\n'
+                          '• Sağa Hızlı Kaydır: Hızlanma',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isSmallScreen ? 12 : 14),
+                        ),
                       ],
                     ),
                   ),
               ],
             ),
           ),
-
-          // Yeni oynanış mekanikleri için yardım metni
-          if (_showTutorial)
-            Positioned(
-              bottom: 120,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'New Movement Controls:',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '• Tap & Hold: Charge jump (longer hold = higher jump)\n'
-                      '• Double Tap: Double jump when in air\n'
-                      '• Swipe Down: Slide under obstacles\n'
-                      '• Swipe Right fast: Dash forward',
-                      style: TextStyle(color: Colors.white, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
           // Hata mesajı
           if (_errorMessage.isNotEmpty)
@@ -1386,7 +1524,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   // Aktif güç göstergesi widget'ı
-  Widget _buildPowerUpIndicator(IconData icon, Color color, double timeLeft) {
+  Widget _buildPowerUpIndicator(
+      IconData icon, Color color, double timeLeft, bool isSmallScreen) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4.0),
       padding: const EdgeInsets.all(4.0),
@@ -1396,14 +1535,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
+          Icon(icon, color: color, size: isSmallScreen ? 20 : 30),
           const SizedBox(width: 4),
           Text(
             '${timeLeft.toStringAsFixed(1)}s',
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: isSmallScreen ? 12 : 16,
             ),
           ),
         ],
