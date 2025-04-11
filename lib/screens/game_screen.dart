@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
@@ -76,10 +78,16 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
     // Oyuncu
     player = PlayerComponent(
-      position: Vector2(size.x * 0.2, size.y - groundHeight - 40),
+      position: Vector2(size.x * 0.2, size.y - groundHeight - 30),
       game: this,
     );
+    // Oyuncunun başlangıçta yerde olduğunu garantilemek için
+    player.isOnGround = true;
+    player.isJumping = false;
     add(player);
+
+    print(
+        "Player başlangıç konumu: ${player.position}, isOnGround: ${player.isOnGround}");
 
     // Skor metni - Gölgeli ve daha görünür
     scoreText = TextComponent(
@@ -258,29 +266,14 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     onGameOver?.call();
   }
 
-  void playerJump() {
-    player.jump();
+  // Doğrudan zıplama başlatmak için metod
+  void startPlayerJumpCharge() {
+    player.startJumpCharge();
   }
 
-  @override
-  void onTapDown(TapDownInfo info) {
-    if (!isPaused && !isGameOver) {
-      player.startJumpCharge();
-    }
-  }
-
-  @override
-  void onTapUp(TapUpInfo info) {
-    if (!isPaused && !isGameOver) {
-      player.executeJump();
-    }
-  }
-
-  @override
-  void onTapCancel() {
-    if (!isPaused && !isGameOver) {
-      player.executeJump();
-    }
+  // Doğrudan zıplama bitirmek için metod
+  void executePlayerJump() {
+    player.executeJump();
   }
 
   // Bulutlar ekle (dekorasyon)
@@ -413,6 +406,11 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
       position: Vector2(size.x * 0.1, size.y * 0.1), // hizalama
     );
     add(hitbox);
+
+    // Başlangıçta yerde olduğunu garantile
+    isOnGround = true;
+    isJumping = false;
+    velocityY = 0;
   }
 
   @override
@@ -427,22 +425,30 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
       double chargePercent = jumpChargeDuration / maxChargeTime;
 
       // Görsel geri bildirim - karakter basılı tutulduğunda şekil değiştirsin
-      scale = Vector2(1 + chargePercent * 0.1, 1 - chargePercent * 0.2);
+      scale = Vector2(1.1 + chargePercent * 0.1, 0.9 - chargePercent * 0.1);
     }
 
     // Yerçekimi ve zıplama fiziği
-    if (isJumping) {
+    if (!isOnGround) {
       velocityY += gravity * dt;
       position.y += velocityY * dt;
 
       // Yere değme kontrolü
-      if (position.y >= game.size.y - game.groundHeight) {
-        position.y = game.size.y - game.groundHeight;
+      if (position.y >=
+          game.size.y - game.groundHeight - height + (size.y * 0.1)) {
+        position.y = game.size.y - game.groundHeight - height + (size.y * 0.1);
         isJumping = false;
         isOnGround = true;
         canDoubleJump = true; // Yere değdiğinde çift zıplama hakkı yenilenir
         velocityY = 0;
         scale = Vector2.all(1); // Normal boyuta dön
+        print("Yere indi! isOnGround: $isOnGround");
+      }
+    } else {
+      // Oyuncu yerde ama pozisyonu zemin seviyesinde değilse düzelt
+      if (position.y <
+          game.size.y - game.groundHeight - height + (size.y * 0.1)) {
+        position.y = game.size.y - game.groundHeight - height + (size.y * 0.1);
       }
     }
 
@@ -504,23 +510,36 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
 
   // Zıplama şarjını başlat
   void startJumpCharge() {
+    print("startJumpCharge çağrıldı! isOnGround: $isOnGround");
     if (isOnGround && !isJumping && !isSliding) {
+      print("Zıplama şarjı başlatılıyor");
       isChargingJump = true;
       jumpChargeDuration = 0; // Şarj süresini sıfırla
+
+      // Basılı tutulduğunda bir görsel geri bildirim için boyutu değiştir
+      scale = Vector2(1.1, 0.9); // Hafif basılmış görünüm
     } else if (!isOnGround && canDoubleJump && !isSliding) {
       // Havadayken çift zıplama
+      print("Çift zıplama yapılıyor");
       doubleJump();
     }
   }
 
   // Zıplamayı gerçekleştir
   void executeJump() {
-    if (isOnGround && isChargingJump && !isSliding) {
+    print(
+        "executeJump çağrıldı! isOnGround: $isOnGround, isChargingJump: $isChargingJump");
+    if (isOnGround && !isSliding) {
       // Şarj süresine göre zıplama hızını hesapla
-      double chargePercent = jumpChargeDuration / maxChargeTime;
-      double jumpVelocity =
-          minJumpVelocity + (maxJumpVelocity - minJumpVelocity) * chargePercent;
+      double jumpVelocity = minJumpVelocity;
 
+      if (isChargingJump) {
+        double chargePercent = jumpChargeDuration / maxChargeTime;
+        jumpVelocity = minJumpVelocity +
+            (maxJumpVelocity - minJumpVelocity) * chargePercent;
+      }
+
+      print("Zıplama hızı: $jumpVelocity");
       isJumping = true;
       isOnGround = false;
       isChargingJump = false;
@@ -531,6 +550,22 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
     } else if (isChargingJump) {
       // Eğer zıplama şarjı başladıysa ama oyuncu yerde değilse
       isChargingJump = false;
+      scale = Vector2.all(1); // Normal boyuta dön
+    }
+  }
+
+  // Temel zıplama (isChargingJump kullanmadan)
+  void jump() {
+    print("jump çağrıldı! isOnGround: $isOnGround");
+    if (isOnGround && !isSliding) {
+      print("Zıplama gerçekleşiyor!");
+      isJumping = true;
+      isOnGround = false;
+      velocityY = -500; // Sabit yüksek zıplama gücü kullan
+      scale = Vector2.all(1);
+    } else if (!isOnGround && canDoubleJump && !isSliding) {
+      print("Çift zıplama gerçekleşiyor!");
+      doubleJump();
     }
   }
 
@@ -584,16 +619,6 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
           playerPaint.color = Colors.red; // Normal renge dön
         }
       });
-    }
-  }
-
-  // Artık bu metodu kullanmıyoruz
-  void jump() {
-    if (isOnGround) {
-      isJumping = true;
-      isOnGround = false;
-      velocityY = minJumpVelocity; // Minimum zıplama yüksekliği kullan
-      scale = Vector2.all(1);
     }
   }
 
@@ -1048,38 +1073,32 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 600;
+
     return Scaffold(
       body: Stack(
         children: [
           GestureDetector(
-            onTapDown: (details) {
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
               if (!_isPaused && !_game.isGameOver) {
-                _game.player.startJumpCharge();
+                print("Basic tap jump!");
+                _game.player.jump();
               }
             },
-            onTapUp: (details) {
+            onVerticalDragStart: (details) {
               if (!_isPaused && !_game.isGameOver) {
-                _game.player.executeJump();
-              }
-            },
-            onTapCancel: () {
-              if (!_isPaused && !_game.isGameOver) {
-                _game.player.executeJump();
-              }
-            },
-            // Kayma hareketi için aşağı kaydırma
-            onVerticalDragDown: (details) {
-              if (!_isPaused && !_game.isGameOver) {
+                print("Kayma!");
                 _game.player.slide();
               }
             },
-            // Dash hareketi için hızlı yatay kaydırma
             onHorizontalDragEnd: (details) {
-              if (!_isPaused && !_game.isGameOver) {
-                // Hızlı kaydırma tespiti
-                if (details.velocity.pixelsPerSecond.dx.abs() > 500) {
-                  _game.player.dash();
-                }
+              if (!_isPaused &&
+                  !_game.isGameOver &&
+                  details.velocity.pixelsPerSecond.dx.abs() > 300) {
+                print("Dash!");
+                _game.player.dash();
               }
             },
             child: GameWidget(game: _game),
@@ -1103,7 +1122,44 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                 ? Icons.favorite
                                 : Icons.favorite_border,
                             color: Colors.red,
-                            size: 30,
+                            size: isSmallScreen ? 24 : 30,
+                          ),
+                        ),
+                      ),
+
+                      // Zıplama animasyonu - enerji çubuğu
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Container(
+                            height: 12,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              border:
+                                  Border.all(color: Colors.white70, width: 1),
+                              color: Colors.black45,
+                            ),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Container(
+                                    margin: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.green,
+                                          Colors.yellow,
+                                          Colors.red
+                                        ],
+                                      ),
+                                    ),
+                                    height: 8,
+                                    width: 60,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
