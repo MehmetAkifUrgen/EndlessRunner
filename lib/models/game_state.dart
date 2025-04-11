@@ -29,17 +29,27 @@ class GameState with ChangeNotifier {
 
   // Yüksek skoru yükle
   Future<void> _loadHighScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    _highScore = prefs.getInt('highScore') ?? 0;
-    _coins = prefs.getInt('coins') ?? 0;
-    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _highScore = prefs.getInt('highScore') ?? 0;
+      _coins = prefs.getInt('coins') ?? 0;
+      print("Loaded high score: $_highScore");
+      notifyListeners();
+    } catch (e) {
+      print("Error loading high score: $e");
+    }
   }
 
   // Yüksek skoru kaydet
   Future<void> _saveHighScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('highScore', _highScore);
-    await prefs.setInt('coins', _coins);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('highScore', _highScore);
+      await prefs.setInt('coins', _coins);
+      print("Saved high score: $_highScore");
+    } catch (e) {
+      print("Error saving high score: $e");
+    }
   }
 
   // Oyunu başlat
@@ -59,6 +69,7 @@ class GameState with ChangeNotifier {
     if (_score > _highScore) {
       _highScore = _score;
       _saveHighScore();
+      print("Game ended with new high score: $_highScore");
     }
 
     notifyListeners();
@@ -70,6 +81,7 @@ class GameState with ChangeNotifier {
     if (_score > _highScore) {
       _highScore = _score;
       _saveHighScore();
+      print("Updated high score: $_highScore");
     }
     notifyListeners();
   }

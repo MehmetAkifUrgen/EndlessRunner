@@ -25,11 +25,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       add(_player!);
     }
 
-    return _player ??
-        PlayerComponent(
-          position: Vector2(0, 0),
-          game: this,
-        );
+    return _player ?? PlayerComponent(position: Vector2(0, 0), game: this);
   }
 
   late TextComponent scoreText;
@@ -83,17 +79,19 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
           ..shader = LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.blue, Colors.deepPurple],
+            colors: [Colors.lightBlue.shade300, Colors.blue.shade600],
           ).createShader(Rect.fromLTWH(0, 0, size.x, size.y)),
       ),
     );
 
-    // Yer zemini
+    // Dağlar (arka plan)
+    _addMountains();
+
+    // Çimenli yer zemini
     add(
-      RectangleComponent(
-        size: Vector2(size.x, groundHeight),
+      GrassComponent(
         position: Vector2(0, size.y - groundHeight),
-        paint: Paint()..color = Colors.green.shade800,
+        size: Vector2(size.x, groundHeight),
       ),
     );
 
@@ -112,7 +110,8 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       add(_player!);
 
       print(
-          "Player başlangıç konumu: ${_player!.position}, isOnGround: ${_player!.isOnGround}");
+        "Player başlangıç konumu: ${_player!.position}, isOnGround: ${_player!.isOnGround}",
+      );
     }
 
     // Skor metni - Gölgeli ve daha görünür
@@ -120,30 +119,23 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       text: 'SCORE: $score',
       textRenderer: TextPaint(
         style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1))
-            ]),
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          shadows: [
+            Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
+          ],
+        ),
       ),
       position: Vector2(20, 20),
     );
     add(scoreText);
 
     // Engel oluşturma zamanlayıcısı
-    obstacleSpawnTimer = Timer(
-      2,
-      onTick: _spawnObstacle,
-      repeat: true,
-    );
+    obstacleSpawnTimer = Timer(2, onTick: _spawnObstacle, repeat: true);
 
     // Toplanabilir oluşturma zamanlayıcısı
-    collectibleSpawnTimer = Timer(
-      3,
-      onTick: _spawnCollectible,
-      repeat: true,
-    );
+    collectibleSpawnTimer = Timer(3, onTick: _spawnCollectible, repeat: true);
 
     // onGameReady callback'i çağır
     onGameReady?.call(this);
@@ -160,8 +152,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
     // Oyun hızını zamanla artır (zorluk arttırma)
     gameSpeed = math.min(
-        gameSpeed + gameSpeedIncreaseRate * dt * difficultyMultiplier,
-        maxGameSpeed);
+      gameSpeed + gameSpeedIncreaseRate * dt * difficultyMultiplier,
+      maxGameSpeed,
+    );
 
     // Güç-yükseltmelerini güncelle
     _updatePowerUps(dt);
@@ -291,6 +284,20 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     isGameOver = true;
     print("GAME OVER! Total score: $score");
 
+    // High score kontrolü ve güncelleme
+    if (score > highScore) {
+      highScore = score;
+
+      // GameState güncelleme
+      if (context != null) {
+        try {
+          Provider.of<GameState>(context!, listen: false).addScore(score);
+        } catch (e) {
+          print("GameState update error: $e");
+        }
+      }
+    }
+
     // Oyun bittiğini bildir
     onGameOver?.call();
   }
@@ -307,15 +314,22 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
   // Bulutlar ekle (dekorasyon)
   void _addClouds() {
-    final rng = math.Random();
-    for (int i = 0; i < 5; i++) {
-      final cloudSize = 20.0 + rng.nextDouble() * 40;
+    final random = math.Random();
+    // Daha az bulut kullan
+    final cloudCount = math.min(5, (size.x / 200).ceil());
+
+    for (int i = 0; i < cloudCount; i++) {
+      final cloudWidth = 80 + random.nextDouble() * 100;
+      final cloudHeight = 30 + random.nextDouble() * 20;
+      final y = 50 + random.nextDouble() * 100;
+
+      // Bulut y pozisyonunu ekran içinde tut
+      final actualY = math.min(y, size.y - groundHeight - 150);
+
       final cloud = CloudComponent(
-        position: Vector2(
-          rng.nextDouble() * size.x,
-          rng.nextDouble() * size.y * 0.5,
-        ),
-        size: Vector2(cloudSize * 2, cloudSize),
+        position: Vector2(random.nextDouble() * size.x, actualY),
+        size: Vector2(cloudWidth, cloudHeight),
+        speed: 10 + random.nextDouble() * 5,
       );
       add(cloud);
     }
@@ -390,6 +404,47 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     hasSlowMotion = true;
     slowMotionTimer = duration;
     difficultyMultiplier = 0.5; // Yarı hıza düşür
+  }
+
+  // Dağlar ekle (arka plan için)
+  void _addMountains() {
+    final rng = math.Random();
+
+    // Arka plandaki dağlar
+    for (int i = 0; i < 5; i++) {
+      final mountainWidth = 100 + rng.nextDouble() * 200;
+      final mountainHeight = 50 + rng.nextDouble() * 100;
+      final mountain = MountainComponent(
+        position: Vector2(
+          rng.nextDouble() * size.x,
+          size.y -
+              groundHeight -
+              mountainHeight +
+              10, // Biraz çimene gömülü görünsün
+        ),
+        size: Vector2(mountainWidth, mountainHeight),
+        color: Colors.blueGrey.shade700,
+      );
+      add(mountain);
+    }
+
+    // Ön plandaki dağlar
+    for (int i = 0; i < 3; i++) {
+      final mountainWidth = 150 + rng.nextDouble() * 200;
+      final mountainHeight = 80 + rng.nextDouble() * 120;
+      final mountain = MountainComponent(
+        position: Vector2(
+          rng.nextDouble() * size.x,
+          size.y -
+              groundHeight -
+              mountainHeight +
+              15, // Biraz çimene gömülü görünsün
+        ),
+        size: Vector2(mountainWidth, mountainHeight),
+        color: Colors.blueGrey.shade900,
+      );
+      add(mountain);
+    }
   }
 }
 
@@ -565,7 +620,8 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
   // Zıplamayı gerçekleştir
   void executeJump() {
     print(
-        "executeJump çağrıldı! isOnGround: $isOnGround, isChargingJump: $isChargingJump");
+      "executeJump çağrıldı! isOnGround: $isOnGround, isChargingJump: $isChargingJump",
+    );
     if (isOnGround && !isSliding) {
       // Şarj süresine göre zıplama hızını hesapla
       double jumpVelocity = -400; // Varsayılan zıplama gücü
@@ -663,8 +719,12 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
   @override
   void render(Canvas canvas) {
     // Oyuncuyu insan şeklinde çiz
-    final bodyRect =
-        Rect.fromLTWH(width * 0.25, height * 0.3, width * 0.5, height * 0.4);
+    final bodyRect = Rect.fromLTWH(
+      width * 0.25,
+      height * 0.3,
+      width * 0.5,
+      height * 0.4,
+    );
     final headRadius = width * 0.2;
     final headCenter = Offset(width * 0.5, height * 0.2);
 
@@ -677,19 +737,39 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
     final legOffset = isSliding ? 0.0 : math.sin(game.gameTime * 10) * 5.0;
 
     // Sol bacak
-    final leftLeg = RRect.fromLTRBR(width * 0.3, height * 0.7, width * 0.4,
-        height - legOffset, Radius.circular(5));
+    final leftLeg = RRect.fromLTRBR(
+      width * 0.3,
+      height * 0.7,
+      width * 0.4,
+      height - legOffset,
+      Radius.circular(5),
+    );
 
     // Sağ bacak
-    final rightLeg = RRect.fromLTRBR(width * 0.6, height * 0.7, width * 0.7,
-        height + legOffset, Radius.circular(5));
+    final rightLeg = RRect.fromLTRBR(
+      width * 0.6,
+      height * 0.7,
+      width * 0.7,
+      height + legOffset,
+      Radius.circular(5),
+    );
 
     // Kollar
-    final leftArm = RRect.fromLTRBR(width * 0.15, height * 0.35, width * 0.25,
-        height * 0.6 - legOffset * 0.5, Radius.circular(5));
+    final leftArm = RRect.fromLTRBR(
+      width * 0.15,
+      height * 0.35,
+      width * 0.25,
+      height * 0.6 - legOffset * 0.5,
+      Radius.circular(5),
+    );
 
-    final rightArm = RRect.fromLTRBR(width * 0.75, height * 0.35, width * 0.85,
-        height * 0.6 + legOffset * 0.5, Radius.circular(5));
+    final rightArm = RRect.fromLTRBR(
+      width * 0.75,
+      height * 0.35,
+      width * 0.85,
+      height * 0.6 + legOffset * 0.5,
+      Radius.circular(5),
+    );
 
     canvas.drawRRect(leftLeg, playerPaint);
     canvas.drawRRect(rightLeg, playerPaint);
@@ -699,56 +779,75 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
     // Yüz detayları (gözler)
     final eyePaint = Paint()..color = Colors.white;
     canvas.drawCircle(
-        Offset(
-            headCenter.dx - headRadius * 0.3, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.15,
-        eyePaint);
+      Offset(
+        headCenter.dx - headRadius * 0.3,
+        headCenter.dy - headRadius * 0.1,
+      ),
+      headRadius * 0.15,
+      eyePaint,
+    );
     canvas.drawCircle(
-        Offset(
-            headCenter.dx + headRadius * 0.3, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.15,
-        eyePaint);
+      Offset(
+        headCenter.dx + headRadius * 0.3,
+        headCenter.dy - headRadius * 0.1,
+      ),
+      headRadius * 0.15,
+      eyePaint,
+    );
 
     // Göz bebekleri
     final pupilPaint = Paint()..color = Colors.black;
     canvas.drawCircle(
-        Offset(
-            headCenter.dx - headRadius * 0.3, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.05,
-        pupilPaint);
+      Offset(
+        headCenter.dx - headRadius * 0.3,
+        headCenter.dy - headRadius * 0.1,
+      ),
+      headRadius * 0.05,
+      pupilPaint,
+    );
     canvas.drawCircle(
-        Offset(
-            headCenter.dx + headRadius * 0.3, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.05,
-        pupilPaint);
+      Offset(
+        headCenter.dx + headRadius * 0.3,
+        headCenter.dy - headRadius * 0.1,
+      ),
+      headRadius * 0.05,
+      pupilPaint,
+    );
 
     // Ağız
     if (isChargingJump) {
       // Zıplama sırasında stresli yüz
       final mouthPath = Path();
       mouthPath.moveTo(
-          headCenter.dx - headRadius * 0.2, headCenter.dy + headRadius * 0.3);
+        headCenter.dx - headRadius * 0.2,
+        headCenter.dy + headRadius * 0.3,
+      );
       mouthPath.lineTo(
-          headCenter.dx + headRadius * 0.2, headCenter.dy + headRadius * 0.3);
+        headCenter.dx + headRadius * 0.2,
+        headCenter.dy + headRadius * 0.3,
+      );
       canvas.drawPath(
-          mouthPath,
-          pupilPaint
-            ..strokeWidth = 2.0
-            ..style = PaintingStyle.stroke);
+        mouthPath,
+        pupilPaint
+          ..strokeWidth = 2.0
+          ..style = PaintingStyle.stroke,
+      );
     } else {
       // Normal gülümseyen yüz
       final mouthRect = Rect.fromCenter(
-          center: Offset(headCenter.dx, headCenter.dy + headRadius * 0.2),
-          width: headRadius * 0.6,
-          height: headRadius * 0.3);
+        center: Offset(headCenter.dx, headCenter.dy + headRadius * 0.2),
+        width: headRadius * 0.6,
+        height: headRadius * 0.3,
+      );
       canvas.drawArc(
-          mouthRect,
-          0,
-          math.pi,
-          false,
-          pupilPaint
-            ..strokeWidth = 2.0
-            ..style = PaintingStyle.stroke);
+        mouthRect,
+        0,
+        math.pi,
+        false,
+        pupilPaint
+          ..strokeWidth = 2.0
+          ..style = PaintingStyle.stroke,
+      );
     }
 
     super.render(canvas);
@@ -824,23 +923,30 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
   final Paint obstaclePaint = Paint();
   final ObstacleType type;
 
-  ObstacleComponent({
-    required Vector2 position,
-    this.type = ObstacleType.cube,
-  }) : super(position: position, anchor: Anchor.bottomLeft) {
+  // Engel tipleri için önişlenmiş Path'ler
+  late final Path? _topFacePath;
+  late final Path? _rightFacePath;
+  late final Path? _crackPath;
+  late final Paint? _topFacePaint;
+  late final Paint? _rightFacePaint;
+  late final Paint? _linePaint;
+  late final Paint? _crackPaint;
+
+  ObstacleComponent({required Vector2 position, this.type = ObstacleType.cube})
+      : super(position: position, anchor: Anchor.bottomLeft) {
     // Engel tipine göre farklı boyut ve renkler
     switch (type) {
       case ObstacleType.cube:
         size = Vector2(30, 30);
-        obstaclePaint.color = Colors.orangeAccent;
+        obstaclePaint.color = Colors.redAccent;
         break;
       case ObstacleType.wall:
         size = Vector2(30, 60);
-        obstaclePaint.color = Colors.redAccent;
+        obstaclePaint.color = Colors.redAccent.shade700;
         break;
       case ObstacleType.ramp:
         size = Vector2(40, 20);
-        obstaclePaint.color = Colors.orangeAccent;
+        obstaclePaint.color = Colors.brown.shade600;
         break;
       case ObstacleType.hole:
         size = Vector2(40, 10);
@@ -849,30 +955,138 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
     }
 
     // Çarpışma kutusu ekle
-    final hitbox = RectangleHitbox.relative(
-      Vector2.all(1.0),
-      parentSize: size,
-    );
+    final hitbox = RectangleHitbox.relative(Vector2.all(1.0), parentSize: size);
     add(hitbox);
+
+    // Detay çizimlerini önişle
+    _initPrerenderedPaths();
+  }
+
+  void _initPrerenderedPaths() {
+    if (type == ObstacleType.cube) {
+      _topFacePath = Path();
+      _topFacePath!.moveTo(0, 0);
+      _topFacePath!.lineTo(width, 0);
+      _topFacePath!.lineTo(width - 5, 5);
+      _topFacePath!.lineTo(5, 5);
+      _topFacePath!.close();
+
+      _topFacePaint = Paint()
+        ..color = obstaclePaint.color.withRed(obstaclePaint.color.red + 30);
+
+      _rightFacePath = Path();
+      _rightFacePath!.moveTo(width, 0);
+      _rightFacePath!.lineTo(width, height);
+      _rightFacePath!.lineTo(width - 5, height - 5);
+      _rightFacePath!.lineTo(width - 5, 5);
+      _rightFacePath!.close();
+
+      _rightFacePaint = Paint()
+        ..color = obstaclePaint.color.withBlue(obstaclePaint.color.blue + 20);
+
+      _crackPaint = Paint()
+        ..color = Colors.black.withOpacity(0.2)
+        ..strokeWidth = 0.5
+        ..style = PaintingStyle.stroke;
+
+      final random = math.Random(42);
+      _crackPath = Path();
+      _crackPath!.moveTo(random.nextDouble() * width * 0.3,
+          random.nextDouble() * height * 0.3);
+      for (int i = 0; i < 3; i++) {
+        _crackPath!.lineTo(
+          random.nextDouble() * width * 0.8,
+          random.nextDouble() * height * 0.8,
+        );
+      }
+    } else if (type == ObstacleType.ramp) {
+      _linePaint = Paint()
+        ..color = Colors.brown.shade800
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
+    } else {
+      _topFacePath = null;
+      _rightFacePath = null;
+      _crackPath = null;
+      _topFacePaint = null;
+      _rightFacePaint = null;
+      _linePaint = null;
+      _crackPaint = null;
+    }
   }
 
   @override
   void render(Canvas canvas) {
     if (type == ObstacleType.ramp) {
-      // Ramp özel çizim
+      // Ramp (rampa) özel çizim
       final path = Path();
       path.moveTo(0, size.y);
       path.lineTo(size.x, size.y);
       path.lineTo(size.x, 0);
       path.close();
       canvas.drawPath(path, obstaclePaint);
+
+      // Daha az çizgi çizerek performans artışı
+      if (_linePaint != null) {
+        for (int i = 1; i < 3; i++) {
+          final y = i * size.y / 3;
+          final x = size.x * (1 - y / size.y);
+          canvas.drawLine(
+            Offset(0, y),
+            Offset(x, y),
+            _linePaint!,
+          );
+        }
+      }
+    } else if (type == ObstacleType.wall) {
+      // Duvar engeli (tuğla duvar görünümü), daha az detay
+      canvas.drawRect(Rect.fromLTWH(0, 0, width, height), obstaclePaint);
+
+      // Daha az tuğla çizgisi çiz
+      final brickLines = Paint()
+        ..color = Colors.black.withOpacity(0.3)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
+
+      // Yatay tuğla çizgileri, sayıyı azalt
+      for (int i = 1; i < 4; i++) {
+        canvas.drawLine(
+          Offset(0, i * height / 4),
+          Offset(width, i * height / 4),
+          brickLines,
+        );
+      }
+
+      // Dikey tuğla çizgileri, daha az çizgi
+      for (int i = 0; i < 4; i += 2) {
+        final double offset = i % 2 == 0 ? 0.0 : width / 4;
+        canvas.drawLine(
+          Offset(offset, i * height / 4),
+          Offset(offset, (i + 1) * height / 4),
+          brickLines,
+        );
+      }
+    } else if (type == ObstacleType.hole) {
+      // Çukur engeli, daha simple
+      canvas.drawRect(Rect.fromLTWH(0, 0, width, height), obstaclePaint);
     } else {
-      // Diğer engeller
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, width, height),
-        obstaclePaint,
-      );
+      // Küp engeli (taş küp görünümü)
+      canvas.drawRect(Rect.fromLTWH(0, 0, width, height), obstaclePaint);
+
+      // Önceden hazırlanmış detayları çiz
+      if (_topFacePath != null && _topFacePaint != null) {
+        canvas.drawPath(_topFacePath!, _topFacePaint!);
+      }
+
+      if (_rightFacePath != null && _rightFacePaint != null) {
+        canvas.drawPath(_rightFacePath!, _rightFacePaint!);
+      }
+
+      if (_crackPath != null && _crackPaint != null) {
+        canvas.drawPath(_crackPath!, _crackPaint!);
+      }
     }
+
     super.render(canvas);
   }
 }
@@ -886,11 +1100,7 @@ class CollectibleComponent extends PositionComponent with CollisionCallbacks {
   CollectibleComponent({
     required Vector2 position,
     this.type = CollectibleType.coin,
-  }) : super(
-          position: position,
-          size: Vector2(25, 25),
-          anchor: Anchor.center,
-        ) {
+  }) : super(position: position, size: Vector2(25, 25), anchor: Anchor.center) {
     // Toplama öğesi tipine göre farklı renkler
     switch (type) {
       case CollectibleType.coin:
@@ -949,11 +1159,7 @@ class CollectibleComponent extends PositionComponent with CollisionCallbacks {
   @override
   void render(Canvas canvas) {
     // Parlak efekt
-    canvas.drawCircle(
-      Offset(width / 2, height / 2),
-      width / 1.5,
-      effectPaint,
-    );
+    canvas.drawCircle(Offset(width / 2, height / 2), width / 1.5, effectPaint);
 
     if (type == CollectibleType.coin) {
       // Altın para
@@ -965,11 +1171,7 @@ class CollectibleComponent extends PositionComponent with CollisionCallbacks {
 
       // İç detaylar
       final innerPaint = Paint()..color = Colors.amber.shade300;
-      canvas.drawCircle(
-        Offset(width / 2, height / 2),
-        width / 3,
-        innerPaint,
-      );
+      canvas.drawCircle(Offset(width / 2, height / 2), width / 3, innerPaint);
     } else if (type == CollectibleType.extraLife) {
       // Ekstra can (kalp)
       final heartPath = _createHeartPath();
@@ -990,7 +1192,9 @@ class CollectibleComponent extends PositionComponent with CollisionCallbacks {
 
       canvas.drawArc(
         Rect.fromCircle(
-            center: Offset(width / 2, height / 2), radius: width / 2.5),
+          center: Offset(width / 2, height / 2),
+          radius: width / 2.5,
+        ),
         math.pi * 0.25,
         math.pi * 1.5,
         false,
@@ -1063,10 +1267,22 @@ class CollectibleComponent extends PositionComponent with CollisionCallbacks {
     final size = width * 0.4;
 
     heartPath.moveTo(center.dx, center.dy + size * 0.3);
-    heartPath.cubicTo(center.dx + size, center.dy - size, center.dx + size * 2,
-        center.dy + size, center.dx, center.dy + size * 1.5);
-    heartPath.cubicTo(center.dx - size * 2, center.dy + size, center.dx - size,
-        center.dy - size, center.dx, center.dy + size * 0.3);
+    heartPath.cubicTo(
+      center.dx + size,
+      center.dy - size,
+      center.dx + size * 2,
+      center.dy + size,
+      center.dx,
+      center.dy + size * 1.5,
+    );
+    heartPath.cubicTo(
+      center.dx - size * 2,
+      center.dy + size,
+      center.dx - size,
+      center.dy - size,
+      center.dx,
+      center.dy + size * 0.3,
+    );
 
     return heartPath;
   }
@@ -1093,32 +1309,139 @@ class CollectibleComponent extends PositionComponent with CollisionCallbacks {
 }
 
 class CloudComponent extends PositionComponent {
-  CloudComponent({required Vector2 position, required Vector2 size})
-      : super(position: position, size: size);
+  final double speed;
+  final Paint _cloudPaint = Paint()..color = Colors.white.withOpacity(0.7);
+  late final List<Offset> _cloudPoints;
 
-  final Paint _cloudPaint = Paint()..color = Colors.white.withOpacity(0.8);
-  double moveSpeed = 10;
+  CloudComponent({
+    required Vector2 position,
+    required Vector2 size,
+    required this.speed,
+  }) : super(position: position, size: size) {
+    // Bulut şeklini önceden hesapla
+    _preCalculateCloudShape();
+  }
 
-  @override
-  void render(Canvas canvas) {
-    final rect = Rect.fromLTWH(0, 0, width, height);
-    canvas.drawOval(rect, _cloudPaint);
-    canvas.drawOval(
-        Rect.fromLTWH(width * 0.2, -height * 0.2, width * 0.6, height * 0.8),
-        _cloudPaint);
-    canvas.drawOval(
-        Rect.fromLTWH(width * 0.1, -height * 0.1, width * 0.4, height * 0.7),
-        _cloudPaint);
+  void _preCalculateCloudShape() {
+    _cloudPoints = [];
+    final random = math.Random(position.x.toInt() * 10 + position.y.toInt());
+
+    // Rastgele bulut şekilleri oluştur ama daha az nokta kullan
+    final pointCount = 5;
+    for (int i = 0; i < pointCount; i++) {
+      final double x = (i * size.x / (pointCount - 1)).toDouble();
+      final double y =
+          (size.y * 0.5 + (random.nextDouble() - 0.5) * size.y * 0.8)
+              .toDouble();
+      _cloudPoints.add(Offset(x, y));
+    }
   }
 
   @override
   void update(double dt) {
-    position.x -= moveSpeed * dt;
-    if (position.x < -width) {
-      position.x = 800 + width; // ekran dışına çık
-      position.y = math.Random().nextDouble() * 200;
+    position.x += speed * dt;
+
+    // Ekran dışına çıktığında sola geri getir
+    final RunnerGame runnerGame = parent as RunnerGame;
+    if (position.x > runnerGame.size.x) {
+      position.x = -size.x;
     }
+
     super.update(dt);
+  }
+}
+
+class GrassComponent extends PositionComponent {
+  // Çimen için önişlenmiş Paint nesneleri
+  final Paint _groundPaint = Paint()..color = Colors.brown.shade700;
+  final Paint _grassPaint = Paint()..color = Colors.green.shade800;
+  final Paint _detailPaint = Paint()..color = Colors.green.shade600;
+
+  // Çimen sapları için önişlenmiş yollar
+  late final List<Path> _grassBlades;
+
+  GrassComponent({required Vector2 position, required Vector2 size})
+      : super(position: position, size: size) {
+    // Sabit tohum ile rastgele değerler üretme
+    final random = math.Random(42);
+
+    // Çimen saplarını önişle
+    _grassBlades = [];
+    final grassBladesCount = (size.x / 30).ceil(); // Daha az çimen sapı
+
+    for (int i = 0; i < grassBladesCount; i++) {
+      final x = i * 30 + random.nextDouble() * 10;
+      final height = 2 + random.nextDouble() * 5;
+
+      // Çimen sapı
+      final grassBlade = Path();
+      grassBlade.moveTo(x, 0);
+      grassBlade.quadraticBezierTo(
+          x + 2, -height * 0.7, x + (random.nextBool() ? 3 : -3), -height);
+      grassBlade.quadraticBezierTo(x - 2, -height * 0.5, x, 0);
+
+      _grassBlades.add(grassBlade);
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    // Zemin rengi
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), _groundPaint);
+
+    // Çimen üst kısmı
+    final grassTopHeight = size.y * 0.3;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.x, grassTopHeight), _grassPaint);
+
+    // Çimen ayrıntıları (önişlenmiş çimen saplarını çiz)
+    canvas.save();
+    canvas.translate(0, grassTopHeight);
+
+    // Sadece görünür çimenleri çiz (ekranda görünür sayıyı azalt)
+    for (final blade in _grassBlades) {
+      canvas.drawPath(blade, _detailPaint);
+    }
+
+    canvas.restore();
+  }
+}
+
+class MountainComponent extends PositionComponent {
+  final Paint _mountainPaint;
+  final Paint _snowPaint = Paint()..color = Colors.white.withOpacity(0.8);
+  late final Path _mountainPath;
+  late final Path _snowPath;
+
+  MountainComponent(
+      {required Vector2 position, required Vector2 size, required Color color})
+      : _mountainPaint = Paint()..color = color,
+        super(position: position, size: size) {
+    // Dağ şeklini önişle
+    _mountainPath = Path();
+    _mountainPath.moveTo(0, size.y);
+    _mountainPath.lineTo(size.x, size.y);
+
+    // Dağın tepe noktasına giden rastgele hatlar
+    final peakX = size.x * 0.5;
+    _mountainPath.lineTo(peakX, 0);
+    _mountainPath.close();
+
+    // Karın kaplı tepeyi önişle
+    _snowPath = Path();
+    final snowHeight = size.y * 0.2;
+    _snowPath.moveTo(peakX - size.x * 0.1, snowHeight);
+    _snowPath.lineTo(peakX, 0);
+    _snowPath.lineTo(peakX + size.x * 0.1, snowHeight);
+    _snowPath.close();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    // Önceden hazırlanmış dağ şeklini çiz
+    canvas.drawPath(_mountainPath, _mountainPaint);
+
+    // Önceden hazırlanmış kar şeklini çiz
+    canvas.drawPath(_snowPath, _snowPaint);
   }
 }
 
@@ -1191,6 +1514,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 600;
 
+    // Responsive değerler
+    final iconSize = isSmallScreen ? 20.0 : 28.0;
+    final fontSize = isSmallScreen ? 12.0 : 16.0;
+    final paddingSize = isSmallScreen ? 8.0 : 12.0;
+    final containerHeight = isSmallScreen ? 10.0 : 12.0;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -1241,20 +1570,31 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: EdgeInsets.all(paddingSize),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Kalpler
-                      Row(
-                        children: List.generate(
-                          3,
-                          (index) => Icon(
-                            index < _game.lives
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            color: Colors.red,
-                            size: isSmallScreen ? 24 : 30,
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: paddingSize,
+                          vertical: paddingSize / 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            3,
+                            (index) => Icon(
+                              index < _game.lives
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              color: Colors.red,
+                              size: iconSize,
+                            ),
                           ),
                         ),
                       ),
@@ -1262,86 +1602,121 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       // Zıplama animasyonu - enerji çubuğu
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          padding:
+                              EdgeInsets.symmetric(horizontal: paddingSize),
                           child: Container(
-                            height: 12,
+                            height: containerHeight,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
-                              border:
-                                  Border.all(color: Colors.white70, width: 1),
-                              color: Colors.black45,
+                              border: Border.all(
+                                color: Colors.white70,
+                                width: 1,
+                              ),
+                              color: Colors.black54,
                             ),
-                            child: Row(
-                              children: [
-                                AnimatedContainer(
-                                  duration: Duration(milliseconds: 50),
-                                  margin: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(4),
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.green,
-                                        Colors.yellow,
-                                        Colors.red
-                                      ],
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                return Row(
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: Duration(milliseconds: 50),
+                                      margin: EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.green,
+                                            Colors.yellow,
+                                            Colors.red,
+                                          ],
+                                        ),
+                                      ),
+                                      height: containerHeight - 4,
+                                      width: _game.hasLayout &&
+                                              _game.player.isChargingJump
+                                          ? math.min(
+                                              (_game.player.jumpChargeDuration /
+                                                      _game.player
+                                                          .maxChargeTime) *
+                                                  constraints.maxWidth,
+                                              constraints.maxWidth - 4)
+                                          : 0,
                                     ),
-                                  ),
-                                  height: 8,
-                                  width: _game.hasLayout &&
-                                          _game.player.isChargingJump
-                                      ? (_game.player.jumpChargeDuration /
-                                              _game.player.maxChargeTime) *
-                                          (MediaQuery.of(context).size.width -
-                                              150)
-                                      : 0,
-                                ),
-                              ],
+                                  ],
+                                );
+                              }),
                             ),
                           ),
                         ),
                       ),
 
                       // Coin counter ve Combo
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.monetization_on,
-                                  color: Colors.amber),
-                              const SizedBox(width: 4),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: paddingSize * 1.5,
+                          vertical: paddingSize / 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.monetization_on,
+                                  color: Colors.amber,
+                                  size: iconSize,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  '${_game.score}',
+                                  style: TextStyle(
+                                    fontSize: fontSize,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_game.combo > 0)
                               Text(
-                                '${_game.score}',
-                                style: const TextStyle(
-                                  fontSize: 20,
+                                'Combo: ${_game.combo}x',
+                                style: TextStyle(
+                                  fontSize: fontSize - 2,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: _getComboColor(_game.combo),
                                 ),
                               ),
-                            ],
-                          ),
-                          if (_game.combo > 0)
-                            Text(
-                              'Combo: ${_game.combo}x',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: _getComboColor(_game.combo),
-                              ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
 
                       // Pause button
-                      IconButton(
-                        icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                        color: Colors.white,
-                        onPressed: () {
-                          setState(() {
-                            _isPaused = !_isPaused;
-                            _game.isPaused = _isPaused;
-                          });
-                        },
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon:
+                              Icon(_isPaused ? Icons.play_arrow : Icons.pause),
+                          color: Colors.white,
+                          iconSize: iconSize,
+                          padding: EdgeInsets.all(paddingSize / 2),
+                          constraints: BoxConstraints(),
+                          onPressed: () {
+                            setState(() {
+                              _isPaused = !_isPaused;
+                              _game.isPaused = _isPaused;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -1350,65 +1725,89 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 // Aktif güçler göstergesi
                 if (_game.hasMagnet || _game.hasShield || _game.hasSlowMotion)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_game.hasMagnet)
-                          _buildPowerUpIndicator(
-                            Icons.attractions,
-                            Colors.purple,
-                            _game.magnetTimer,
-                            isSmallScreen,
-                          ),
-                        if (_game.hasShield)
-                          _buildPowerUpIndicator(
-                            Icons.shield,
-                            Colors.blue,
-                            _game.shieldTimer,
-                            isSmallScreen,
-                          ),
-                        if (_game.hasSlowMotion)
-                          _buildPowerUpIndicator(
-                            Icons.hourglass_bottom,
-                            Colors.lightBlue,
-                            _game.slowMotionTimer,
-                            isSmallScreen,
-                          ),
-                      ],
+                    padding: EdgeInsets.symmetric(horizontal: paddingSize),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: paddingSize,
+                        vertical: paddingSize / 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_game.hasMagnet)
+                              _buildPowerUpIndicator(
+                                Icons.attractions,
+                                Colors.purple,
+                                _game.magnetTimer,
+                                fontSize,
+                                iconSize * 0.8,
+                              ),
+                            if (_game.hasShield)
+                              _buildPowerUpIndicator(
+                                Icons.shield,
+                                Colors.blue,
+                                _game.shieldTimer,
+                                fontSize,
+                                iconSize * 0.8,
+                              ),
+                            if (_game.hasSlowMotion)
+                              _buildPowerUpIndicator(
+                                Icons.hourglass_bottom,
+                                Colors.lightBlue,
+                                _game.slowMotionTimer,
+                                fontSize,
+                                iconSize * 0.8,
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
 
                 // Tutorial yukarıda gösterilsin
                 if (_showTutorial)
                   Container(
-                    margin: EdgeInsets.all(8),
-                    padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
+                    margin: EdgeInsets.all(paddingSize),
+                    padding: EdgeInsets.all(paddingSize),
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.white30, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 5,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Kontroller:',
+                          'Controls:',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: isSmallScreen ? 14 : 16,
+                            fontSize: fontSize,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         SizedBox(height: 4),
                         Text(
-                          '• Basılı Tut: Yüksekse zıpla\n'
-                          '• Aşağı Kaydır: Kayma\n'
-                          '• Sağa Hızlı Kaydır: Hızlanma',
+                          '• Press & Hold: Jump higher\n'
+                          '• Swipe Down: Slide\n'
+                          '• Swipe Right fast: Dash',
                           style: TextStyle(
-                              color: Colors.white,
-                              fontSize: isSmallScreen ? 12 : 14),
+                            color: Colors.white,
+                            fontSize: fontSize - 2,
+                          ),
                         ),
                       ],
                     ),
@@ -1421,11 +1820,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           if (_errorMessage.isNotEmpty)
             Center(
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(paddingSize * 2),
                 color: Colors.black54,
                 child: Text(
                   _errorMessage,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: fontSize,
+                  ),
                 ),
               ),
             ),
@@ -1434,23 +1836,29 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           if (_isPaused)
             Center(
               child: Container(
-                padding: const EdgeInsets.all(16),
-                color: Colors.black54,
-                child: const Column(
+                padding: EdgeInsets.all(paddingSize * 2),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'PAUSED',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: fontSize * 1.5,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 20),
+                    SizedBox(height: paddingSize * 2),
                     Text(
                       'Tap to continue',
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: fontSize,
+                      ),
                     ),
                   ],
                 ),
@@ -1461,58 +1869,178 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           if (_game.isGameOver)
             Center(
               child: Container(
-                width: 300,
-                padding: const EdgeInsets.all(20),
+                width: isSmallScreen ? screenSize.width * 0.9 : 350,
+                padding: EdgeInsets.all(paddingSize * 2),
                 decoration: BoxDecoration(
-                  color: Colors.black87,
+                  gradient: LinearGradient(
+                    colors: [Colors.black87, Colors.blueGrey.shade900],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white12, width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.5),
                       spreadRadius: 5,
-                      blurRadius: 7,
-                      offset: const Offset(0, 3),
+                      blurRadius: 10,
+                      offset: Offset(0, 5),
                     ),
                   ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'GAME OVER',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Score: ${_game.score}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _game = RunnerGame();
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 30, vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    ShaderMask(
+                      shaderCallback: (bounds) => LinearGradient(
+                        colors: [Colors.red.shade400, Colors.red.shade800],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ).createShader(bounds),
+                      child: Text(
+                        'GAME OVER',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: fontSize * 2,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 3,
                         ),
                       ),
-                      child: const Text(
-                        'PLAY AGAIN',
-                        style: TextStyle(fontSize: 18),
+                    ),
+                    SizedBox(height: paddingSize * 1.5),
+
+                    // Puanlar
+                    Container(
+                      padding: EdgeInsets.all(paddingSize * 1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.black38,
+                        borderRadius: BorderRadius.circular(15),
                       ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.stars,
+                                  color: Colors.amber, size: iconSize),
+                              SizedBox(width: paddingSize),
+                              Text(
+                                'Score: ${_game.score}',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: fontSize * 1.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: paddingSize),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.emoji_events,
+                                color: Colors.amber,
+                                size: iconSize,
+                              ),
+                              SizedBox(width: paddingSize),
+                              Text(
+                                'High Score: ${_game.highScore}',
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  fontSize: fontSize * 1.2,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: paddingSize * 2),
+
+                    // Butonlar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: Icon(Icons.refresh, color: Colors.white),
+                            label: Text(
+                              'PLAY AGAIN',
+                              style: TextStyle(
+                                fontSize: fontSize,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: () {
+                              // High score'u kaydet
+                              if (_game.score > _game.highScore) {
+                                Provider.of<GameState>(
+                                  context,
+                                  listen: false,
+                                ).addScore(_game.score);
+                              }
+                              setState(() {
+                                _game = RunnerGame();
+                                // GameState'ten yüksek skoru al
+                                final gameState = Provider.of<GameState>(
+                                  context,
+                                  listen: false,
+                                );
+                                _game.highScore = gameState.highScore;
+                                _game.context = context;
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              padding: EdgeInsets.symmetric(
+                                vertical: paddingSize,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: paddingSize),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: Icon(Icons.home, color: Colors.white),
+                            label: Text(
+                              'MAIN MENU',
+                              style: TextStyle(
+                                fontSize: fontSize,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: () {
+                              // High score'u kaydet
+                              if (_game.score > _game.highScore) {
+                                Provider.of<GameState>(
+                                  context,
+                                  listen: false,
+                                ).addScore(_game.score);
+                              }
+                              Navigator.of(context).pop(); // Ana ekrana dön
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              padding: EdgeInsets.symmetric(
+                                vertical: paddingSize,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1525,24 +2053,25 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   // Aktif güç göstergesi widget'ı
   Widget _buildPowerUpIndicator(
-      IconData icon, Color color, double timeLeft, bool isSmallScreen) {
+    IconData icon,
+    Color color,
+    double timeLeft,
+    double fontSize,
+    double iconSize,
+  ) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4.0),
-      padding: const EdgeInsets.all(4.0),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(8.0),
-      ),
+      margin: EdgeInsets.symmetric(horizontal: 4.0),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: isSmallScreen ? 20 : 30),
-          const SizedBox(width: 4),
+          Icon(icon, color: color, size: iconSize),
+          SizedBox(width: 4),
           Text(
             '${timeLeft.toStringAsFixed(1)}s',
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.bold,
-              fontSize: isSmallScreen ? 12 : 16,
+              fontSize: fontSize - 2,
             ),
           ),
         ],
