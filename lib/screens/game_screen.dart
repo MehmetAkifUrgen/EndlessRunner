@@ -144,23 +144,6 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     );
     add(scoreText);
 
-    // FPS metni
-    fpsText = TextComponent(
-      text: 'FPS: 0',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          shadows: [
-            Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
-          ],
-        ),
-      ),
-      position: Vector2(20, 50),
-    );
-    add(fpsText);
-
     // Engel oluşturma zamanlayıcısı
     obstacleSpawnTimer = Timer(2, onTick: _spawnObstacle, repeat: true);
 
@@ -456,15 +439,22 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   void _addMountains([GameTheme? theme]) {
     final rng = math.Random();
 
-    // Arka plandaki dağlar - daha fazla stil ve çeşitlilik
+    // Arka plandaki dağlar - doğal renkler
     final mountainColors = [
       theme?.secondaryColor.withOpacity(0.8) ?? Colors.blueGrey.shade700,
       theme?.secondaryColor.withOpacity(0.9) ?? Colors.blueGrey.shade800,
       theme?.secondaryColor.withOpacity(0.7) ?? Colors.blueGrey.shade600,
     ];
 
-    // Dağ sayısını azalt
-    for (int i = 0; i < 3; i++) {
+    // Doğal dağ renkleri - yeşil-kahverengi tonları
+    if (theme == null || theme.secondaryColor == null) {
+      mountainColors[0] = Colors.blueGrey.shade700;
+      mountainColors[1] = Colors.blueGrey.shade800;
+      mountainColors[2] = Colors.blueGrey.shade600;
+    }
+
+    // Dağ sayısını azalt - performans için
+    for (int i = 0; i < 2; i++) {
       final mountainWidth = 200 + rng.nextDouble() * 250;
       final mountainHeight = 80 + rng.nextDouble() * 120;
       final colorIndex = rng.nextInt(mountainColors.length);
@@ -485,37 +475,29 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     }
 
     // Ön plandaki dağlar - daha koyusu
-    // Sadece 2 dağ ekle
-    for (int i = 0; i < 2; i++) {
-      final mountainWidth = 250 + rng.nextDouble() * 200;
-      final mountainHeight = 100 + rng.nextDouble() * 150;
-      final mountain = MountainComponent(
-        position: Vector2(
-          rng.nextDouble() * size.x -
-              mountainWidth * 0.2, // Ekran dışına da taşabilir
-          size.y -
-              groundHeight -
-              mountainHeight +
-              20, // Biraz çimene gömülü görünsün
-        ),
-        size: Vector2(mountainWidth, mountainHeight),
-        color: Colors.blueGrey.shade900,
-      );
-      add(mountain);
-    }
+    // Sadece 1 dağ ekle - performans için
+    final mountainWidth = 250 + rng.nextDouble() * 200;
+    final mountainHeight = 100 + rng.nextDouble() * 150;
+    final mountain = MountainComponent(
+      position: Vector2(
+        rng.nextDouble() * size.x -
+            mountainWidth * 0.2, // Ekran dışına da taşabilir
+        size.y -
+            groundHeight -
+            mountainHeight +
+            20, // Biraz çimene gömülü görünsün
+      ),
+      size: Vector2(mountainWidth, mountainHeight),
+      color: theme?.secondaryColor ?? Colors.blueGrey.shade900,
+    );
+    add(mountain);
   }
 
+  // FPS hesaplama ve güncelleme
   void _updateFps(double dt) {
+    // FPS'i hesapla ama ekranda gösterme
     if (dt > 0) {
-      double instantFps = 1.0 / dt;
-      _fps = _fps * 0.9 + instantFps * 0.1; // Yumuşatma uygula
-
-      // FPS metnini yalnızca kendi izlemen için güncelle, kullanıcıya gösterme
-      // _fpsUpdateTime += dt;
-      // if (_fpsUpdateTime >= _fpsUpdateInterval) {
-      //   _fpsUpdateTime = 0;
-      //   fpsText.text = 'FPS: ${_fps.toInt()}';
-      // }
+      _fps = 1.0 / dt;
     }
   }
 }
@@ -1007,12 +989,15 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
   late final Paint? _rightFacePaint;
   late final Paint? _linePaint;
   late final Paint? _crackPaint;
+  final bool isSpecial;
+  final math.Random random = math.Random();
 
   ObstacleComponent({
     required Vector2 position,
     this.type = ObstacleType.cube,
     Color? color,
   })  : obstaclePaint = Paint()..color = color ?? Colors.redAccent,
+        isSpecial = math.Random().nextDouble() < 0.15, // %15 şansla özel engel
         super(position: position, anchor: Anchor.bottomLeft) {
     // Engel tipine göre farklı boyut ve renkler
     switch (type) {
@@ -1039,9 +1024,24 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
         break;
     }
 
-    // Çarpışma kutusu ekle
-    final hitbox = RectangleHitbox.relative(Vector2.all(1.0), parentSize: size);
-    add(hitbox);
+    // Çarpışma kutusu ekle - daha doğru çarpışma tespiti için
+    if (type == ObstacleType.ramp) {
+      // Rampa için özel çarpışma kutusu (üçgen için)
+      final hitbox = PolygonHitbox([
+        Vector2(0, size.y), // Sol alt
+        Vector2(size.x, size.y), // Sağ alt
+        Vector2(size.x, 0), // Sağ üst
+      ]);
+      add(hitbox);
+    } else {
+      // Diğer engeller için normal çarpışma kutusu
+      final hitbox = RectangleHitbox.relative(
+        Vector2.all(type == ObstacleType.hole ? 0.8 : 0.95),
+        parentSize: size,
+        position: Vector2(size.x * 0.025, size.y * 0.025),
+      );
+      add(hitbox);
+    }
 
     // Detay çizimlerini önişle
     _initPrerenderedPaths();
@@ -1109,12 +1109,51 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
       path.lineTo(size.x, size.y);
       path.lineTo(size.x, 0);
       path.close();
-      canvas.drawPath(path, obstaclePaint);
+
+      // Özel engeller için parıltı veya farklı stil ekle
+      if (isSpecial) {
+        canvas.drawPath(
+          path,
+          Paint()
+            ..shader = LinearGradient(
+              colors: [
+                obstaclePaint.color,
+                obstaclePaint.color.withOpacity(0.7),
+                Colors.white.withOpacity(0.3),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ).createShader(Rect.fromLTWH(0, 0, size.x, size.y)),
+        );
+
+        // Işıltı efekti ekle
+        canvas.drawPath(
+          path,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = Colors.white.withOpacity(0.8),
+        );
+      } else {
+        // Daha estetik rampa
+        canvas.drawPath(
+          path,
+          Paint()
+            ..shader = LinearGradient(
+              colors: [
+                obstaclePaint.color,
+                obstaclePaint.color.withOpacity(0.6),
+              ],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ).createShader(Rect.fromLTWH(0, 0, size.x, size.y)),
+        );
+      }
 
       // Daha az çizgi çizerek performans artışı
       if (_linePaint != null) {
-        for (int i = 1; i < 3; i++) {
-          final y = i * size.y / 3;
+        for (int i = 1; i < 2; i++) {
+          final y = i * size.y / 2;
           final x = size.x * (1 - y / size.y);
           canvas.drawLine(
             Offset(0, y),
@@ -1124,41 +1163,163 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
         }
       }
     } else if (type == ObstacleType.wall) {
-      // Duvar engeli (tuğla duvar görünümü), daha az detay
-      canvas.drawRect(Rect.fromLTWH(0, 0, width, height), obstaclePaint);
+      // Duvar engeli (tuğla duvar görünümü), daha şık
+      // Temel duvar
+      final wallGradient = LinearGradient(
+        colors: [
+          obstaclePaint.color,
+          obstaclePaint.color.withRed(obstaclePaint.color.red - 40),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, width, height));
 
-      // Daha az tuğla çizgisi çiz
+      canvas.drawRect(
+          Rect.fromLTWH(0, 0, width, height), Paint()..shader = wallGradient);
+
+      // Özel engeller için efekt ekle
+      if (isSpecial) {
+        // Parlayan kenarlar
+        final borderPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Colors.amber.withOpacity(0.8);
+
+        canvas.drawRect(
+            Rect.fromLTWH(1, 1, width - 2, height - 2), borderPaint);
+
+        // Parıltılı efekt
+        canvas.drawRect(
+          Rect.fromLTWH(0, 0, width, height),
+          Paint()
+            ..shader = RadialGradient(
+              colors: [
+                Colors.white.withOpacity(0.4),
+                Colors.transparent,
+              ],
+              radius: 0.8,
+              center: Alignment.topLeft,
+            ).createShader(Rect.fromLTWH(0, 0, width, height)),
+        );
+      }
+
+      // Daha güzel tuğla çizgileri çiz
       final brickLines = Paint()
-        ..color = Colors.black.withOpacity(0.3)
+        ..color = Colors.black.withOpacity(0.2)
         ..strokeWidth = 1.0
         ..style = PaintingStyle.stroke;
 
-      // Yatay tuğla çizgileri, sayıyı azalt
-      for (int i = 1; i < 4; i++) {
+      // Yatay tuğla çizgileri
+      for (int i = 1; i < 3; i++) {
         canvas.drawLine(
-          Offset(0, i * height / 4),
-          Offset(width, i * height / 4),
+          Offset(0, i * height / 3),
+          Offset(width, i * height / 3),
           brickLines,
         );
       }
 
-      // Dikey tuğla çizgileri, daha az çizgi
-      for (int i = 0; i < 4; i += 2) {
-        final double offset = i % 2 == 0 ? 0.0 : width / 4;
-        canvas.drawLine(
-          Offset(offset, i * height / 4),
-          Offset(offset, (i + 1) * height / 4),
-          brickLines,
-        );
-      }
+      // Dikey tuğla çizgileri
+      canvas.drawLine(
+        Offset(width / 2, 0),
+        Offset(width / 2, height / 3),
+        brickLines,
+      );
+      canvas.drawLine(
+        Offset(width / 2, height / 3 * 2),
+        Offset(width / 2, height),
+        brickLines,
+      );
     } else if (type == ObstacleType.hole) {
-      // Çukur engeli, daha simple
+      // Çukur engeli, daha görsel
       canvas.drawRect(Rect.fromLTWH(0, 0, width, height), obstaclePaint);
+
+      // Çukura derinlik efekti ekle
+      final innerRect =
+          Rect.fromLTWH(width * 0.15, height * 0.3, width * 0.7, height * 0.7);
+
+      // Gölgeli çukur efekti
+      final holeShadow = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.black.withOpacity(0.8),
+            Colors.black.withOpacity(0.3),
+          ],
+          radius: 0.8,
+        ).createShader(innerRect);
+
+      canvas.drawRect(innerRect, holeShadow);
+
+      // Özel efektler
+      if (isSpecial) {
+        // Daha dikkat çekici çukur
+        canvas.drawRect(
+          innerRect,
+          Paint()
+            ..shader = LinearGradient(
+              colors: [
+                Colors.red.withOpacity(0.3),
+                Colors.black.withOpacity(0.8),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ).createShader(innerRect),
+        );
+
+        // Tehlike işareti
+        final warningPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = Colors.amber;
+
+        // Tehlike çizgileri
+        for (int i = 0; i < 2; i++) {
+          final offset = i * 5.0;
+          canvas.drawLine(Offset(width * 0.3 + offset, height * 0.2),
+              Offset(width * 0.7 - offset, height * 0.2), warningPaint);
+        }
+      }
     } else {
       // Küp engeli (taş küp görünümü)
-      canvas.drawRect(Rect.fromLTWH(0, 0, width, height), obstaclePaint);
+      final cubeGradient = LinearGradient(
+        colors: [
+          obstaclePaint.color.withRed(obstaclePaint.color.red + 20),
+          obstaclePaint.color.withRed(obstaclePaint.color.red - 20),
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(Rect.fromLTWH(0, 0, width, height));
 
-      // Önceden hazırlanmış detayları çiz
+      canvas.drawRect(
+          Rect.fromLTWH(0, 0, width, height), Paint()..shader = cubeGradient);
+
+      // Özel küpler için parlama efekti
+      if (isSpecial) {
+        // Parlayan kenarlık
+        final borderPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Colors.white.withOpacity(0.8);
+
+        canvas.drawRect(
+            Rect.fromLTWH(1, 1, width - 2, height - 2), borderPaint);
+
+        // Parıltı efekti
+        final shimmerPaint = Paint()
+          ..shader = LinearGradient(
+            colors: [
+              Colors.transparent,
+              Colors.white.withOpacity(0.4),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ).createShader(Rect.fromLTWH(0, 0, width, height));
+
+        canvas.drawRect(Rect.fromLTWH(0, 0, width, height), shimmerPaint);
+      }
+
+      // 3D efekti için üst ve sağ yüzler
       if (_topFacePath != null && _topFacePaint != null) {
         canvas.drawPath(_topFacePath!, _topFacePaint!);
       }
@@ -1167,6 +1328,7 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
         canvas.drawPath(_rightFacePath!, _rightFacePaint!);
       }
 
+      // Detaylar için çatlak çizim
       if (_crackPath != null && _crackPaint != null) {
         canvas.drawPath(_crackPath!, _crackPaint!);
       }
@@ -1396,20 +1558,21 @@ class CollectibleComponent extends PositionComponent with CollisionCallbacks {
 class CloudComponent extends PositionComponent {
   final double speed;
   final Paint _cloudPaint = Paint()..color = Colors.white.withOpacity(0.7);
-  late final List<Offset> _cloudPoints;
+  final List<Offset> _cloudPoints = [];
   bool _isOnScreen = true;
+  bool _isRendered = false;
 
   CloudComponent({
     required Vector2 position,
     required Vector2 size,
     required this.speed,
-  }) : super(position: position, size: size) {
-    // Bulut şeklini önceden hesapla
-    _preCalculateCloudShape();
-  }
+  }) : super(position: position, size: size);
 
   void _preCalculateCloudShape() {
-    _cloudPoints = [];
+    if (_isRendered) return;
+
+    // Cloudpoints'i temizle, yeniden oluştur
+    _cloudPoints.clear();
     final random = math.Random(position.x.toInt() * 10 + position.y.toInt());
 
     // Rastgele bulut şekilleri oluştur ama daha az nokta kullan
@@ -1420,6 +1583,8 @@ class CloudComponent extends PositionComponent {
           (size.y * 0.5 + (random.nextDouble() - 0.5) * size.y * 0.7);
       _cloudPoints.add(Offset(x, y));
     }
+
+    _isRendered = true;
   }
 
   @override
@@ -1445,6 +1610,9 @@ class CloudComponent extends PositionComponent {
   void render(Canvas canvas) {
     // Sadece ekranda görünür olduğunda çiz
     if (_isOnScreen) {
+      // Lazy olarak bulut şeklini hesapla
+      _preCalculateCloudShape();
+
       // Bulutları basitleştir - sadece oval şekiller kullan
       canvas.drawOval(
         Rect.fromCenter(
@@ -1454,8 +1622,6 @@ class CloudComponent extends PositionComponent {
         ),
         _cloudPaint,
       );
-
-      // Ek detayları çizme
     }
 
     super.render(canvas);
@@ -1470,6 +1636,7 @@ class GrassComponent extends PositionComponent {
 
   // Çimen sapları için önişlenmiş yollar
   late final List<Path> _grassBlades;
+  bool _isPrerendered = false;
 
   GrassComponent(
       {required Vector2 position, required Vector2 size, Color? groundColor})
@@ -1477,16 +1644,22 @@ class GrassComponent extends PositionComponent {
         _grassPaint = Paint()..color = Colors.green.shade800,
         _detailPaint = Paint()..color = Colors.green.shade600,
         super(position: position, size: size) {
+    // Lazy initialization için boş başlat
+    _grassBlades = [];
+  }
+
+  void _prerenderGrass() {
+    if (_isPrerendered) return;
+
     // Sabit tohum ile rastgele değerler üretme
     final random = math.Random(42);
 
     // Çimen saplarını önişle - sayıyı azalt
-    _grassBlades = [];
-    final grassBladesCount = (size.x / 60).ceil(); // Çok daha az çimen sapı
+    final grassBladesCount = 5; // Çok daha az çimen sapı - performans için
 
     for (int i = 0; i < grassBladesCount; i++) {
-      final x = i * 60 + random.nextDouble() * 10;
-      final height = 2 + random.nextDouble() * 5;
+      final x = i * (size.x / grassBladesCount) + random.nextDouble() * 10;
+      final height = 2 + random.nextDouble() * 4;
 
       // Çimen sapı
       final grassBlade = Path();
@@ -1496,6 +1669,8 @@ class GrassComponent extends PositionComponent {
 
       _grassBlades.add(grassBlade);
     }
+
+    _isPrerendered = true;
   }
 
   @override
@@ -1507,13 +1682,17 @@ class GrassComponent extends PositionComponent {
     final grassTopHeight = size.y * 0.3;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.x, grassTopHeight), _grassPaint);
 
-    // Çimen ayrıntıları - sadece belirli sayıda göster
-    if (_grassBlades.length < 30) {
+    // Lazy olarak çimenleri hazırla
+    _prerenderGrass();
+
+    // Çimen ayrıntıları - optimize edilmiş
+    if (_grassBlades.isNotEmpty) {
       canvas.save();
       canvas.translate(0, grassTopHeight);
 
-      for (final blade in _grassBlades) {
-        canvas.drawPath(blade, _detailPaint);
+      // Performans için sadece birkaç çimen sapı göster
+      for (int i = 0; i < math.min(5, _grassBlades.length); i++) {
+        canvas.drawPath(_grassBlades[i], _detailPaint);
       }
 
       canvas.restore();
@@ -1528,6 +1707,7 @@ class MountainComponent extends PositionComponent {
   final Path _mountainPath = Path();
   final Path _snowPath = Path();
   final List<Path> _detailPaths = [];
+  bool _isPrerendered = false;
 
   MountainComponent(
       {required Vector2 position, required Vector2 size, required Color color})
@@ -1537,11 +1717,17 @@ class MountainComponent extends PositionComponent {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
         super(position: position, size: size) {
-    // Daha basit ama estetik dağ şekli oluştur
+    // Dağ şeklini hazırla ama render'da kullan
+  }
+
+  // Dağı hazırlama - lazy initialization için
+  void _prerenderMountain() {
+    if (_isPrerendered) return;
+
     final random = math.Random(position.x.toInt());
 
-    // Dağ silüeti için 3-5 tepe oluştur
-    final peakCount = 3 + random.nextInt(3);
+    // Dağ silüeti için 3-4 tepe oluştur (sayıyı azalt)
+    final peakCount = 3;
     final points = <Offset>[];
 
     // Başlangıç ve bitiş noktaları (zemin)
@@ -1560,86 +1746,70 @@ class MountainComponent extends PositionComponent {
     // Dağ şeklini oluştur
     _mountainPath.moveTo(points.first.dx, points.first.dy);
 
-    // Yumuşak geçişler için kontrol noktaları
+    // Basitleştirilmiş dağ çizimi - performans için
     for (int i = 1; i < points.length; i++) {
-      final current = points[i];
-      final prev = points[i - 1];
-
-      if (i == 1 || i == points.length - 1) {
-        // İlk ve son noktalar direkt bağlansın
-        _mountainPath.lineTo(current.dx, current.dy);
-      } else {
-        // Orta tepeler için yumuşak geçişler
-        final control1 = Offset(
-          prev.dx + (current.dx - prev.dx) / 3,
-          prev.dy + (current.dy - prev.dy) / 5,
-        );
-        final control2 = Offset(
-          prev.dx + (current.dx - prev.dx) * 2 / 3,
-          current.dy + (prev.dy - current.dy) / 5,
-        );
-
-        _mountainPath.cubicTo(
-          control1.dx,
-          control1.dy,
-          control2.dx,
-          control2.dy,
-          current.dx,
-          current.dy,
-        );
-      }
+      _mountainPath.lineTo(points[i].dx, points[i].dy);
     }
 
     _mountainPath.close();
 
-    // Kar - sadece yüksek tepelerde
+    // Kar - sadece en yüksek tepeye ekle (performans için)
+    int highestPeakIndex = 0;
+    double highestPoint = size.y;
+
     for (int i = 1; i < points.length - 1; i++) {
-      final peakPoint = points[i];
-      // Sadece yeterince yüksek tepelere kar ekle
-      if (size.y - peakPoint.dy > size.y * 0.5) {
-        final snowPath = Path();
-        final snowWidth = size.x * 0.05 + random.nextDouble() * size.x * 0.05;
-
-        snowPath.moveTo(peakPoint.dx, peakPoint.dy);
-        snowPath.lineTo(
-            peakPoint.dx - snowWidth, peakPoint.dy + snowWidth * 1.5);
-        snowPath.lineTo(
-            peakPoint.dx + snowWidth, peakPoint.dy + snowWidth * 1.5);
-        snowPath.close();
-
-        // Ana kar path'ine ekle
-        _snowPath.addPath(snowPath, Offset.zero);
+      if (points[i].dy < highestPoint) {
+        highestPoint = points[i].dy;
+        highestPeakIndex = i;
       }
     }
 
-    // Dağ detayları - birkaç çizgi ekle
-    for (int i = 0; i < 2; i++) {
-      final startX = random.nextDouble() * size.x * 0.8 + size.x * 0.1;
-      final startY = random.nextDouble() * size.y * 0.3 + size.y * 0.1;
+    // Sadece en yüksek tepeye kar ekle
+    if (highestPeakIndex > 0) {
+      final peakPoint = points[highestPeakIndex];
+      final snowPath = Path();
+      final snowWidth = size.x * 0.05 + random.nextDouble() * size.x * 0.05;
 
-      final detailPath = Path();
-      detailPath.moveTo(startX, startY);
+      snowPath.moveTo(peakPoint.dx, peakPoint.dy);
+      snowPath.lineTo(peakPoint.dx - snowWidth, peakPoint.dy + snowWidth * 1.5);
+      snowPath.lineTo(peakPoint.dx + snowWidth, peakPoint.dy + snowWidth * 1.5);
+      snowPath.close();
 
-      // Son nokta aşağıya doğru
-      final endX = startX + (random.nextDouble() * size.x * 0.2 - size.x * 0.1);
-      detailPath.lineTo(
-          endX, startY + size.y * (0.3 + random.nextDouble() * 0.4));
-
-      _detailPaths.add(detailPath);
+      // Ana kar path'ine ekle
+      _snowPath.addPath(snowPath, Offset.zero);
     }
+
+    // Sadece bir detay çizgisi ekle (performans için)
+    final startX = random.nextDouble() * size.x * 0.8 + size.x * 0.1;
+    final startY = random.nextDouble() * size.y * 0.3 + size.y * 0.1;
+
+    final detailPath = Path();
+    detailPath.moveTo(startX, startY);
+
+    // Son nokta aşağıya doğru
+    final endX = startX + (random.nextDouble() * size.x * 0.2 - size.x * 0.1);
+    detailPath.lineTo(
+        endX, startY + size.y * (0.3 + random.nextDouble() * 0.4));
+
+    _detailPaths.add(detailPath);
+
+    _isPrerendered = true;
   }
 
   @override
   void render(Canvas canvas) {
+    // Lazy olarak dağı hazırla
+    _prerenderMountain();
+
     // Ana dağ şeklini çiz
     canvas.drawPath(_mountainPath, _mountainPaint);
 
     // Kar tepelerini çiz
     canvas.drawPath(_snowPath, _snowPaint);
 
-    // Detay çizgilerini çiz
-    for (final path in _detailPaths) {
-      canvas.drawPath(path, _detailPaint);
+    // Sadece bir detay çizgisi çiz
+    if (_detailPaths.isNotEmpty) {
+      canvas.drawPath(_detailPaths.first, _detailPaint);
     }
   }
 }

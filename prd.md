@@ -42,6 +42,15 @@
 - **Parlama ve Efekt Animasyonları**: Toplanabilir öğeler için parlama efektleri
 - **Çok Katmanlı Arka Plan**: Dağlar, bulutlar ve zemin elementleri
 - **İnsan Benzeri Karakter Tasarımı**: Detaylı insan formu ve yüz ifadeleri
+- **Özel Şık Engeller**: Farklı tipteki engeller için gradient ve parıltı efektleri içeren gelişmiş tasarımlar
+- **Doğal Renk Şeması**: Dağlar ve arkaplan için gerçekçi renk tonları
+
+### Tema Sistemi
+- **Özelleştirilebilir Temalar**: Farklı renk şemaları ve görsel stiller
+- **Tema Mağazası**: Oyunda kazanılan altınlarla satın alınabilen temalar
+- **Aktif Tema Gösterimi**: Mevcut seçili temayı gösteren arayüz
+- **Tema Önizleme**: Satın almadan önce temaları önizleme imkanı
+- **Kilitli Temalar**: Oyun ilerleyişi ile açılan veya satın alınabilen temalar
 
 ## Kullanıcı Arayüzü
 - **Puan Göstergesi**: Oyuncunun mevcut puanını gösterir
@@ -53,6 +62,9 @@
 - **Ana Menü**: Oyun bitiminde ana menüye dönme seçeneği
 - **Zıplama Güç Göstergesi**: Zıplama kuvvetini görsel olarak gösteren çubuk
 - **Tutorial Bilgilendirme**: Oyun başında kontrol açıklamaları
+- **Responsive Ana Menü**: Farklı ekran boyutlarına uyum sağlayan şık ana menü
+- **Animasyonlu Butonlar**: Etkileşim sırasında animasyon gösteren UI elemanları
+- **Gradient ve Gölge Efektleri**: Modern görünüm için görsel zenginlikler
 
 ## Teknik Özellikler
 - **Flame Oyun Motoru**: 2D oyun geliştirme için Flutter'a entegre framework
@@ -62,15 +74,33 @@
 - **Yüksek Skor Saklama**: Oyuncunun en yüksek skorunu kaydetme ve gösterme
 - **Responsive Tasarım**: Farklı ekran boyutlarına uyum sağlayan arayüz
 - **Dokunuş Hareketi Tanıma**: Kaydırma ve dokunma hareketleri için gelişmiş tanıma
+- **Obje Tipi Bazlı Çarpışma Kutuları**: Farklı engel tipleri için optimize edilmiş çarpışma kutuları
 
 ## Performans Optimizasyonları
 - **Görsel Öğe Sınırlaması**: Ekrandaki grafik öğelerinin sayısı optimize edildi
+- **Lazy Initialization**: Nesneler sadece ihtiyaç duyulduğunda oluşturulur
 - **Render Optimizasyonu**: Ekran dışındaki nesneler render edilmiyor
 - **Basitleştirilmiş Şekiller**: Karmaşık eğriler yerine basit çizimler kullanılıyor
 - **Önbelleğe Alınmış Çizimler**: Sık kullanılan şekiller önceden hazırlanıyor
 - **Obje Havuzu**: Nesnelerin yeniden kullanımı için optimize edilmiş sistem
 - **Detay Seviyesi Kontrolü**: Uzaktaki veya önemsiz nesnelerde daha az detay
 - **Çarpışma Kutusu Optimizasyonu**: Basitleştirilmiş çarpışma algılama
+- **Görsel Efekt Yönetimi**: Sadece görünür olduğunda efekt render etme
+- **Dağ ve Bulut Sayısı Azaltma**: Benzer görsel etkiyi daha az nesneyle sağlama
+- **3B Efektleri Optimizasyonu**: Performans için hafifletilmiş 3B görünümlü 2D çizimler
+- **Shader ve Gradient Optimizasyonu**: Daha verimli shader kullanımı
+- **Çimen Detaylarının Azaltılması**: Minimum çimen öğesiyle maksimum görsel etki
+
+## Gerçekleştirilmiş Geliştirmeler
+- **Tema Mağazası**: Oyun içi para ile satın alınabilir farklı temalar
+- **Özel Engeller**: Görsel olarak zenginleştirilmiş, efekt ve animasyonlu engeller
+- **Yüksek Skor Kaydı**: Yerel depolamada saklanan en yüksek puan sistemi
+- **Responsive Arayüz**: Farklı ekran boyutlarına tam uyumlu kullanıcı arayüzü
+- **Engel Çarpışma İyileştirmeleri**: Engel tiplerine özel çarpışma kutuları
+- **Performans Optimizasyonları**: FPS artıran kapsamlı grafik ve render iyileştirmeleri
+- **Chrome Basılı Tutma Düzeltmesi**: Web tarayıcılarında oyun kontrollerinin optimizasyonu
+- **Görsel Dil Değişimi**: Arayüzün İngilizce'den Türkçe'ye çevrilmesi
+- **Oyun Sonu İyileştirmeleri**: Ana menüye dönüş ve yeniden oynama seçenekleri
 
 ## Gelecek Geliştirmeler
 - **Şerit Değiştirme Sistemi**: Sağa/sola kaydırarak şerit değiştirebilme
@@ -80,13 +110,23 @@
 - **Ses Efektleri ve Müzik**: Atmosferik oyun deneyimi
 - **Yüksek Skor Tablosu**: Çevrimiçi yüksek skor rekabeti
 - **Başarılar ve Ödüller**: Oyuncuya motivasyon sağlayacak hedefler
-- **Çoklu Tema**: Farklı oyun temaları ve görsel stiller
-- **Oyuniçi Ekonomi**: Toplanan altınların kullanılabileceği bir sistemi
-- **Oyuncu İlerlemesi**: Kalıcı yükseltmeler ve beceri ağacı
+- **İlerleme Sistemi**: Oyuncu becerilerinin gelişimine dayalı açılan özellikler
+- **Görev Sistemi**: Günlük ve haftalık tamamlanabilir görevler
+- **Aşamalı Zorluk Sistemi**: Oyun ilerledikçe açılan yeni engel tipleri
 
 ## Test Sonuçları
-- **Performans**: Oyun tüm desteklenen platformlarda 60 FPS'de çalışıyor
-- **Kullanıcı Geri Bildirimi**: İlk testlerde basılı tutma zıplama mekanizması ve güç-yükseltmeler beğenildi
+- **Performans**: Optimizasyonlar sonrası tüm desteklenen platformlarda 60 FPS'nin üzerinde çalışma
+- **Kullanıcı Geri Bildirimi**: Yeni engel tasarımları ve tema sistemi beğeni topladı
 - **Dengeli Zorluk Seviyesi**: Oyun zamanla zorlaşırken adil bir öğrenme eğrisi sunuyor
 - **Çapraz Platform Uyumluluk**: Mobil, web ve masaüstü platformlarda sorunsuz çalışma
-- **Tarayıcı Uyumluluğu**: Chrome, Firefox ve Safari'de test edildi
+- **Tarayıcı Uyumluluğu**: Chrome, Firefox ve Safari'de test edildi ve optimize edildi
+- **Görsel Performans**: Optimize edilen arka plan ve engel tasarımları ile daha iyi görsel deneyim
+- **Responsive Tasarım**: Farklı ekran boyutlarında sorunsuz ölçekleme
+
+## Teknik Notlar
+- **Flutter Versiyonu**: 3.0.0+
+- **Flame Versiyonu**: 1.11.0
+- **Provider Versiyonu**: 6.0.5
+- **Dart SDK Versiyonu**: '>=3.0.0 <4.0.0'
+- **SharedPreferences Versiyonu**: 2.2.1
+- **Minimum API Gereksinimleri**: Android API Level 16+, iOS 9.0+
