@@ -77,6 +77,14 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
   @override
   Future<void> onLoad() async {
+    // GameState'i alalım
+    final gameState = context != null
+        ? Provider.of<GameState>(context!, listen: false)
+        : null;
+
+    // Mevcut temayı al
+    final currentTheme = gameState?.currentTheme;
+
     // Arkaplan - Gradient ile zenginleştirme
     add(
       RectangleComponent(
@@ -85,19 +93,21 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
           ..shader = LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.lightBlue.shade300, Colors.blue.shade600],
+            colors: currentTheme?.backgroundGradient ??
+                [Colors.lightBlue.shade300, Colors.blue.shade600],
           ).createShader(Rect.fromLTWH(0, 0, size.x, size.y)),
       ),
     );
 
     // Dağlar (arka plan)
-    _addMountains();
+    _addMountains(currentTheme);
 
     // Çimenli yer zemini
     add(
       GrassComponent(
         position: Vector2(0, size.y - groundHeight),
         size: Vector2(size.x, groundHeight),
+        groundColor: currentTheme?.groundColor,
       ),
     );
 
@@ -109,6 +119,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       _player = PlayerComponent(
         position: Vector2(size.x * 0.2, size.y - groundHeight),
         game: this,
+        color: currentTheme?.playerColor,
       );
       _player!.isOnGround = true;
       _player!.isJumping = false;
@@ -217,11 +228,24 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
     final rng = math.Random();
     final type = ObstacleType.values[rng.nextInt(ObstacleType.values.length)];
+    double yPosition = size.y - groundHeight;
+
+    // Engel tipine göre zemine oturmasını sağla
+    if (type == ObstacleType.hole) {
+      yPosition = size.y - groundHeight + 5; // Çukur yere gömülü görünsün
+    }
+
+    // Tema bilgisini al
+    final gameState = context != null
+        ? Provider.of<GameState>(context!, listen: false)
+        : null;
+    final obstacleColor = gameState?.currentTheme.obstacleColor;
 
     // Engellerin çeşitliliğini arttır
     final obstacle = ObstacleComponent(
-      position: Vector2(size.x + 50, size.y - groundHeight - 30),
+      position: Vector2(size.x + 50, yPosition),
       type: type,
+      color: obstacleColor,
     );
 
     add(obstacle);
@@ -429,14 +453,14 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   }
 
   // Dağlar ekle (arka plan için)
-  void _addMountains() {
+  void _addMountains([GameTheme? theme]) {
     final rng = math.Random();
 
     // Arka plandaki dağlar - daha fazla stil ve çeşitlilik
     final mountainColors = [
-      Colors.blueGrey.shade700,
-      Colors.blueGrey.shade800,
-      Colors.blueGrey.shade600,
+      theme?.secondaryColor.withOpacity(0.8) ?? Colors.blueGrey.shade700,
+      theme?.secondaryColor.withOpacity(0.9) ?? Colors.blueGrey.shade800,
+      theme?.secondaryColor.withOpacity(0.7) ?? Colors.blueGrey.shade600,
     ];
 
     // Dağ sayısını azalt
@@ -506,7 +530,7 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
   bool isInvincible = false;
   double invincibleTimer = 0;
   final RunnerGame game;
-  final Paint playerPaint = Paint()..color = Colors.red;
+  final Paint playerPaint;
 
   // Zıplama için değişkenler
   double jumpChargeDuration = 0;
@@ -525,8 +549,12 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
   double dashCooldown = 0; // Dash bekleme süresi
   final double maxDashCooldown = 2.0; // Dash bekleme süresi
 
-  PlayerComponent({required Vector2 position, required this.game})
-      : super(
+  PlayerComponent({
+    required Vector2 position,
+    required this.game,
+    Color? color,
+  })  : playerPaint = Paint()..color = color ?? Colors.red,
+        super(
           position: position,
           size: Vector2(40, 60),
           anchor: Anchor.bottomLeft,
@@ -968,7 +996,7 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
 }
 
 class ObstacleComponent extends PositionComponent with CollisionCallbacks {
-  final Paint obstaclePaint = Paint();
+  final Paint obstaclePaint;
   final ObstacleType type;
 
   // Engel tipleri için önişlenmiş Path'ler
@@ -980,25 +1008,34 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
   late final Paint? _linePaint;
   late final Paint? _crackPaint;
 
-  ObstacleComponent({required Vector2 position, this.type = ObstacleType.cube})
-      : super(position: position, anchor: Anchor.bottomLeft) {
+  ObstacleComponent({
+    required Vector2 position,
+    this.type = ObstacleType.cube,
+    Color? color,
+  })  : obstaclePaint = Paint()..color = color ?? Colors.redAccent,
+        super(position: position, anchor: Anchor.bottomLeft) {
     // Engel tipine göre farklı boyut ve renkler
     switch (type) {
       case ObstacleType.cube:
         size = Vector2(30, 30);
-        obstaclePaint.color = Colors.redAccent;
         break;
       case ObstacleType.wall:
         size = Vector2(30, 60);
-        obstaclePaint.color = Colors.redAccent.shade700;
+        if (color == null) {
+          obstaclePaint.color = Colors.redAccent.shade700;
+        }
         break;
       case ObstacleType.ramp:
         size = Vector2(40, 20);
-        obstaclePaint.color = Colors.brown.shade600;
+        if (color == null) {
+          obstaclePaint.color = Colors.brown.shade600;
+        }
         break;
       case ObstacleType.hole:
         size = Vector2(40, 10);
-        obstaclePaint.color = Colors.black;
+        if (color == null) {
+          obstaclePaint.color = Colors.black;
+        }
         break;
     }
 
@@ -1378,10 +1415,9 @@ class CloudComponent extends PositionComponent {
     // Rastgele bulut şekilleri oluştur ama daha az nokta kullan
     final pointCount = 4;
     for (int i = 0; i < pointCount; i++) {
-      final double x = (i * size.x / (pointCount - 1)).toDouble();
+      final double x = (i * size.x / (pointCount - 1));
       final double y =
-          (size.y * 0.5 + (random.nextDouble() - 0.5) * size.y * 0.7)
-              .toDouble();
+          (size.y * 0.5 + (random.nextDouble() - 0.5) * size.y * 0.7);
       _cloudPoints.add(Offset(x, y));
     }
   }
@@ -1428,15 +1464,19 @@ class CloudComponent extends PositionComponent {
 
 class GrassComponent extends PositionComponent {
   // Çimen için önişlenmiş Paint nesneleri
-  final Paint _groundPaint = Paint()..color = Colors.brown.shade700;
-  final Paint _grassPaint = Paint()..color = Colors.green.shade800;
-  final Paint _detailPaint = Paint()..color = Colors.green.shade600;
+  final Paint _groundPaint;
+  final Paint _grassPaint;
+  final Paint _detailPaint;
 
   // Çimen sapları için önişlenmiş yollar
   late final List<Path> _grassBlades;
 
-  GrassComponent({required Vector2 position, required Vector2 size})
-      : super(position: position, size: size) {
+  GrassComponent(
+      {required Vector2 position, required Vector2 size, Color? groundColor})
+      : _groundPaint = Paint()..color = groundColor ?? Colors.brown.shade700,
+        _grassPaint = Paint()..color = Colors.green.shade800,
+        _detailPaint = Paint()..color = Colors.green.shade600,
+        super(position: position, size: size) {
     // Sabit tohum ile rastgele değerler üretme
     final random = math.Random(42);
 
