@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'character.dart';
 
 enum GravityDirection { down, left, right, up }
 
@@ -72,6 +73,10 @@ class GameState with ChangeNotifier {
   int _currentLevelId = 1;
   List<Level> _availableLevels = [];
 
+  // Karakter sistemi için eklemeler
+  String _currentCharacterId = 'runner';
+  List<PlayerCharacter> _availableCharacters = [];
+
   // Getters
   bool get isPlaying => _isPlaying;
   int get score => _score;
@@ -87,11 +92,19 @@ class GameState with ChangeNotifier {
   int get currentXP => _currentXP;
   int get currentLevelId => _currentLevelId;
   List<Level> get availableLevels => _availableLevels;
+  String get currentCharacterId => _currentCharacterId;
+  List<PlayerCharacter> get availableCharacters => _availableCharacters;
 
   // Aktif seviyeyi döndür
   Level get currentLevel => _availableLevels.firstWhere(
         (level) => level.id == _currentLevelId,
         orElse: () => _availableLevels.first,
+      );
+
+  // Aktif karakteri döndür
+  PlayerCharacter get currentCharacter => _availableCharacters.firstWhere(
+        (character) => character.id == _currentCharacterId,
+        orElse: () => _availableCharacters.first,
       );
 
   // Sonraki seviye için gereken XP
@@ -116,6 +129,7 @@ class GameState with ChangeNotifier {
   GameState() {
     _initThemes();
     _initLevels();
+    _initCharacters();
     _loadSavedData();
   }
 
@@ -124,7 +138,7 @@ class GameState with ChangeNotifier {
     _availableThemes = [
       GameTheme(
         id: 'default',
-        name: 'Klasik',
+        name: 'Classic',
         price: 0,
         isUnlocked: true,
         primaryColor: Colors.blue,
@@ -136,7 +150,7 @@ class GameState with ChangeNotifier {
       ),
       GameTheme(
         id: 'night',
-        name: 'Gece Modu',
+        name: 'Night Mode',
         price: 1000,
         primaryColor: Colors.deepPurple,
         secondaryColor: Colors.indigo,
@@ -147,7 +161,7 @@ class GameState with ChangeNotifier {
       ),
       GameTheme(
         id: 'jungle',
-        name: 'Orman',
+        name: 'Jungle',
         price: 2000,
         primaryColor: Colors.green,
         secondaryColor: Colors.lightGreen,
@@ -158,7 +172,7 @@ class GameState with ChangeNotifier {
       ),
       GameTheme(
         id: 'lava',
-        name: 'Lav Dünyası',
+        name: 'Lava World',
         price: 3000,
         primaryColor: Colors.orange,
         secondaryColor: Colors.red,
@@ -169,7 +183,7 @@ class GameState with ChangeNotifier {
       ),
       GameTheme(
         id: 'winter',
-        name: 'Kış Manzarası',
+        name: 'Winter Scene',
         price: 2500,
         primaryColor: Colors.lightBlue,
         secondaryColor: Colors.white,
@@ -186,8 +200,8 @@ class GameState with ChangeNotifier {
     _availableLevels = [
       Level(
         id: 1,
-        name: "Acemi Koşucu",
-        description: "Yarışa yeni başlayanlar için.",
+        name: "Beginner Runner",
+        description: "For those just starting out in the race.",
         requiredXP: 0,
         speedMultiplier: 1.0,
         scoreMultiplier: 1.0,
@@ -196,8 +210,8 @@ class GameState with ChangeNotifier {
       ),
       Level(
         id: 2,
-        name: "Amatör Atlet",
-        description: "Engellere alışıyorsun, hızını artır!",
+        name: "Amateur Athlete",
+        description: "Getting used to obstacles, increase your speed!",
         requiredXP: 500,
         speedMultiplier: 1.2,
         scoreMultiplier: 1.2,
@@ -205,8 +219,8 @@ class GameState with ChangeNotifier {
       ),
       Level(
         id: 3,
-        name: "Hızlı Koşucu",
-        description: "Daha hızlı ve daha yüksek puanlar!",
+        name: "Fast Runner",
+        description: "Faster and higher scores!",
         requiredXP: 1500,
         speedMultiplier: 1.4,
         scoreMultiplier: 1.5,
@@ -214,8 +228,8 @@ class GameState with ChangeNotifier {
       ),
       Level(
         id: 4,
-        name: "Profesyonel Atlet",
-        description: "Artık profesyonel bir koşucusun!",
+        name: "Professional Athlete",
+        description: "You're now a professional runner!",
         requiredXP: 3000,
         speedMultiplier: 1.6,
         scoreMultiplier: 1.8,
@@ -223,8 +237,8 @@ class GameState with ChangeNotifier {
       ),
       Level(
         id: 5,
-        name: "Engel Ustası",
-        description: "Süper koşucu! Daha yüksek zorluk ve ödüller.",
+        name: "Obstacle Master",
+        description: "Super runner! Higher difficulty and rewards.",
         requiredXP: 5000,
         speedMultiplier: 1.8,
         scoreMultiplier: 2.0,
@@ -232,14 +246,19 @@ class GameState with ChangeNotifier {
       ),
       Level(
         id: 6,
-        name: "Efsane Koşucu",
-        description: "Maksimum hız ve zorluk seviyesi!",
+        name: "Legendary Runner",
+        description: "Maximum speed and difficulty level!",
         requiredXP: 10000,
         speedMultiplier: 2.0,
         scoreMultiplier: 2.5,
         obstacleFrequency: 1,
       ),
     ];
+  }
+
+  // Karakterleri başlat
+  void _initCharacters() {
+    _availableCharacters = CharacterManager.characters;
   }
 
   // Yüksek skoru ve diğer verileri yükle
@@ -252,8 +271,9 @@ class GameState with ChangeNotifier {
       _playerLevel = prefs.getInt('playerLevel') ?? 1;
       _currentXP = prefs.getInt('currentXP') ?? 0;
       _currentLevelId = prefs.getInt('currentLevelId') ?? 1;
+      _currentCharacterId = prefs.getString('currentCharacter') ?? 'runner';
 
-      // Açılmış temaları yükle
+      // Açık temaları yükle
       for (int i = 0; i < _availableThemes.length; i++) {
         String themeId = _availableThemes[i].id;
         if (prefs.getBool('theme_$themeId') == true) {
@@ -289,8 +309,11 @@ class GameState with ChangeNotifier {
         }
       }
 
+      // Açılmış karakterleri yükle
+      _availableCharacters = await CharacterManager.loadCharacters();
+
       print(
-          "Loaded high score: $_highScore, theme: $_currentThemeId, level: $_playerLevel, XP: $_currentXP");
+          "Loaded high score: $_highScore, theme: $_currentThemeId, level: $_playerLevel, XP: $_currentXP, character: $_currentCharacterId");
       notifyListeners();
     } catch (e) {
       print("Error loading saved data: $e");
@@ -307,7 +330,9 @@ class GameState with ChangeNotifier {
       await prefs.setInt('playerLevel', _playerLevel);
       await prefs.setInt('currentXP', _currentXP);
       await prefs.setInt('currentLevelId', _currentLevelId);
-      print("Saved data - high score: $_highScore, level: $_playerLevel");
+      await prefs.setString('currentCharacter', _currentCharacterId);
+      print(
+          "Saved data - high score: $_highScore, level: $_playerLevel, character: $_currentCharacterId");
     } catch (e) {
       print("Error saving data: $e");
     }
@@ -543,6 +568,70 @@ class GameState with ChangeNotifier {
       print("Saved current theme: $_currentThemeId");
     } catch (e) {
       print("Error saving current theme: $e");
+    }
+  }
+
+  // Karakter satın alma
+  bool buyCharacter(String characterId) {
+    // İlgili karakteri bul
+    final character = _availableCharacters.firstWhere(
+      (character) => character.id == characterId,
+      orElse: () => PlayerCharacter(
+        id: '',
+        name: '',
+        price: 0,
+        primaryColor: Colors.white,
+        secondaryColor: Colors.white,
+      ),
+    );
+
+    // Eğer karakter bulunamazsa veya zaten açıksa
+    if (character.id.isEmpty || character.isUnlocked) {
+      return false;
+    }
+
+    // Yeterli altın var mı kontrol et
+    if (_coins >= character.price) {
+      // Altınları düş
+      _coins -= character.price;
+
+      // Karakteri güncelle
+      for (int i = 0; i < _availableCharacters.length; i++) {
+        if (_availableCharacters[i].id == characterId) {
+          _availableCharacters[i] =
+              _availableCharacters[i].copyWith(isUnlocked: true);
+          break;
+        }
+      }
+
+      // Karakter kilidini kaydet
+      CharacterManager.unlockCharacter(characterId);
+
+      // Verileri kaydet
+      _saveData();
+      notifyListeners();
+      return true;
+    } else {
+      // Yeterli altın yok
+      return false;
+    }
+  }
+
+  // Aktif karakteri ayarla
+  void setCurrentCharacter(String characterId) {
+    // Açık karakterlerden mi kontrol et
+    final character = _availableCharacters.firstWhere(
+      (character) => character.id == characterId && character.isUnlocked,
+      orElse: () => _availableCharacters.first,
+    );
+
+    if (character.id.isNotEmpty) {
+      _currentCharacterId = characterId;
+      _saveData();
+      notifyListeners();
+      print("Set current character to: $characterId");
+    } else {
+      print("Cannot set character: Character $characterId is not unlocked");
     }
   }
 }

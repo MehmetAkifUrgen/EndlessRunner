@@ -5,6 +5,7 @@ import '../services/ad_service.dart';
 import 'game_screen.dart';
 import 'theme_shop_screen.dart';
 import '../services/audio_service.dart';
+import 'character_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -83,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'En Yüksek Skor: ${gameState.highScore}',
+                        'High Score: ${gameState.highScore}',
                         style: const TextStyle(
                           fontSize: 18,
                           color: Colors.white,
@@ -130,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           children: [
                             Text(
-                              "Seviye ${gameState.playerLevel}: ${gameState.currentLevel.name}",
+                              "Level ${gameState.playerLevel}: ${gameState.currentLevel.name}",
                               style: const TextStyle(
                                 fontSize: 16,
                                 color: Colors.amber,
@@ -180,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           // Oyna butonu
                           MenuButton(
-                            text: 'OYNA',
+                            text: 'PLAY',
                             onPressed: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -197,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                           // Seviye Seç butonu
                           MenuButton(
-                            text: 'SEVİYE SEÇ',
+                            text: 'SELECT LEVEL',
                             onPressed: () {
                               _showLevelSelectDialog(context);
                             },
@@ -210,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                           // Tema Mağazası butonu
                           MenuButton(
-                            text: 'TEMA MAĞAZASI',
+                            text: 'THEME SHOP',
                             onPressed: () {
                               _showThemeShopDialog(context);
                             },
@@ -221,9 +222,26 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 20),
 
+                          // Karakter Seçim butonu
+                          MenuButton(
+                            text: 'SELECT CHARACTER',
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const CharacterScreen(),
+                                ),
+                              );
+                            },
+                            width: constraints.maxWidth * 0.7,
+                            height: 60,
+                            color: Colors.teal,
+                            onSoundCallback: _playButtonSound,
+                          ),
+                          const SizedBox(height: 20),
+
                           // Ayarlar butonu
                           MenuButton(
-                            text: 'AYARLAR',
+                            text: 'SETTINGS',
                             onPressed: () {
                               // TODO: Ayarlar sayfasını göster
                             },
@@ -273,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: const Text(
-                          'Geliştirici: Barış',
+                          'Developer: Baris',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.white,
@@ -328,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'SEVİYE SEÇ',
+                  'SELECT LEVEL',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -337,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Her seviye farklı zorluk ve puan çarpanları içerir',
+                  'Each level has different difficulty and score multipliers',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
@@ -401,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                'Puan: ${(level.scoreMultiplier).toStringAsFixed(1)}x',
+                                'Score: ${(level.scoreMultiplier).toStringAsFixed(1)}x',
                                 style: TextStyle(
                                   color:
                                       isUnlocked ? Colors.white70 : Colors.grey,
@@ -409,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               Text(
-                                'Hız: ${(level.speedMultiplier).toStringAsFixed(1)}x',
+                                'Speed: ${(level.speedMultiplier).toStringAsFixed(1)}x',
                                 style: TextStyle(
                                   color:
                                       isUnlocked ? Colors.white70 : Colors.grey,
@@ -433,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 MenuButton(
-                  text: 'KAPAT',
+                  text: 'CLOSE',
                   onPressed: () {
                     Navigator.of(context).pop();
                   },

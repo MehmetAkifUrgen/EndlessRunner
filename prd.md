@@ -89,6 +89,30 @@
 - **Obje Tipi Bazlı Çarpışma Kutuları**: Farklı engel tipleri için optimize edilmiş çarpışma kutuları
 - **İlerleme Kayıt Sistemi**: Oyuncu seviyesi ve XP bilgisini yerel depolamada saklama
 
+## Ses Sistemi
+- **Farklı Ses Efektleri**: Zıplama, çift zıplama, kayma, dash, çarpışma ve güç-yükseltme aktivasyon sesleri
+- **Müzik Parçaları**: Menü müziği, oyun içi müzik ve oyun sonu müziği
+- **Ses Ayarları**: Kullanıcıların müzik ve ses efektlerini ayrı ayrı açıp kapatabilmesi
+- **Dinamik Ses**: Oyun hızı arttıkça müzik temposunun hafifçe artması
+- **Kayıt Sistemi**: Kullanıcının ses tercihlerinin yerel depolamada saklanması
+- **Ses Önbelleği**: Performans iyileştirme için sık kullanılan seslerin önbelleğe alınması
+- **Kesintisiz Geçişler**: Farklı oyun durumları arasında müziğin kesintisiz geçişi
+
+## Parçacık Sistemi
+- **Temel Parçacık Sınıfı**: Hız ve renk gibi ortak özelliklere sahip temel parçacık yapısı
+- **Farklı Parçacık Türleri**: Dairesel, yıldız, konfeti, duman ve koşma parçacıkları
+- **Zıplama Efektleri**: Zıplama ve çift zıplama sırasında farklı görsel parçacık efektleri
+- **Toplanabilir Efektleri**: Farklı toplanabilir nesneler için özel renkli parçacık patlamaları
+- **Çarpışma Efektleri**: Engele çarpıldığında kırmızı patlama ve duman parçacıkları
+- **Dash Hareket Çizgileri**: Dash sırasında hareket çizgilerini simgeleyen parçacıklar
+- **Kayma İzi**: Kayma hareketi sırasında zemin üzerinde toz efekti
+- **Konfeti Patlamaları**: Seviye atlandığında ve yüksek skor kırıldığında konfeti patlaması
+- **Oyun Sonu Efektleri**: Oyun bitiminde özel efektler ve parçacık efektleri
+- **Koşma Tozu**: Koşma sırasında karakterin arkasında hafif toz efekti
+- **Yıldız Patlamaları**: Güç yükseltmeleri ve özel olaylarda renkli yıldız patlaması
+- **Dinamik Boyutlandırma**: Parçacıkların zamanla solması ve küçülmesi
+- **Performans Optimizasyonu**: Maksimum parçacık sınırı ile düşük sistemlerde performans garantisi
+
 ## Performans Optimizasyonları
 - **Görsel Öğe Sınırlaması**: Ekrandaki grafik öğelerinin sayısı optimize edildi
 - **Lazy Initialization**: Nesneler sadece ihtiyaç duyulduğunda oluşturulur
@@ -117,6 +141,9 @@
 - **Oyun Sonu İyileştirmeleri**: Ana menüye dönüş ve yeniden oynama seçenekleri
 - **Seviye Sistemi**: XP toplama ve seviyelerin kilidi açılması sistemi
 - **Seviye Seçim Ekranı**: Açılmış seviyeler arasında seçim yapabilme
+- **Ses Sistemi**: Oyun müzikleri ve efektleri tam entegrasyonu
+- **Ayarlar Menüsü**: Ses ve müzik açma/kapama kontrolleri
+- **Özel Efektler ve Parçacık Sistemleri**: Oyun içindeki olaylara göre dinamik parçacık patlamaları, yıldız, konfeti, duman efektleri ve koşma sırasında ayak izleri
 
 ## Seviye Sistemi Detayları
 - **Seviye 1**: Acemi Koşucu - Standart oyun hızı, yalnızca temel engeller
@@ -130,8 +157,7 @@
 - **Şerit Değiştirme Sistemi**: Sağa/sola kaydırarak şerit değiştirebilme
 - **Karakter Özelleştirme**: Farklı karakterler ve görünümler
 - **Seviye Sistemi Genişletme**: Daha fazla seviye ve daha özel ödüller
-- **Özel Efektler ve Parçacık Sistemleri**: Daha zengin görsel deneyim
-- **Ses Efektleri ve Müzik**: Atmosferik oyun deneyimi
+- **Ses Efektleri ve Müzik Genişletme**: Farklı seviyelere özel müzik ve efektler
 - **Yüksek Skor Tablosu**: Çevrimiçi yüksek skor rekabeti
 - **Başarılar ve Ödüller**: Oyuncuya motivasyon sağlayacak hedefler
 - **İlerleme Sistemi**: Oyuncu becerilerinin gelişimine dayalı açılan özellikler
@@ -147,6 +173,9 @@
 - **Görsel Performans**: Optimize edilen arka plan ve engel tasarımları ile daha iyi görsel deneyim
 - **Responsive Tasarım**: Farklı ekran boyutlarında sorunsuz ölçekleme
 - **Seviye Sistemi Testi**: XP kazanma ve seviye atlama mekanikleri düzgün çalışıyor
+- **Ses Sistemi Testi**: Tüm ses efektleri ve müzikler tüm platformlarda gecikme olmadan çalışıyor
+- **Ayarlar Menüsü**: Ses ve müzik ayarları düzgün kaydediliyor ve uygulanıyor
+- **Parçacık Sistemi Testi**: Farklı cihazlarda parçacık efektleri performans düşüşü olmadan akıcı şekilde çalışıyor
 
 ## Teknik Notlar
 - **Flutter Versiyonu**: 3.0.0+
@@ -154,4 +183,6 @@
 - **Provider Versiyonu**: 6.0.5
 - **Dart SDK Versiyonu**: '>=3.0.0 <4.0.0'
 - **SharedPreferences Versiyonu**: 2.2.1
+- **AudioPlayers Versiyonu**: 6.4.0
+- **Flutter Cube Versiyonu**: 0.1.1
 - **Minimum API Gereksinimleri**: Android API Level 16+, iOS 9.0+

@@ -13,6 +13,9 @@ import '../models/obstacle.dart';
 import '../models/collectible.dart';
 import 'dart:math';
 import '../services/audio_service.dart';
+import 'package:flutter/painting.dart';
+import '../models/particles/particle_system.dart';
+import '../models/character.dart';
 
 class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   // Oyun değişkenleri
@@ -78,6 +81,12 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   // Ses servisi
   final AudioService _audioService = AudioService();
 
+  // Parçacık sistemi
+  late ParticleSystem particleSystem;
+
+  // Karakter sistemi
+  PlayerCharacter? selectedCharacter;
+
   @override
   Future<void> onLoad() async {
     // GameState'i alalım
@@ -87,6 +96,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
     // Mevcut temayı al
     final currentTheme = gameState?.currentTheme;
+
+    // Mevcut karakteri al
+    selectedCharacter = gameState?.currentCharacter;
 
     // Mevcut seviyeyi al ve oyun değişkenlerini ayarla
     if (gameState != null) {
@@ -103,6 +115,10 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
       print("Seviye yüklendi: ${currentLevel?.name}, Hız: $gameSpeed");
     }
+
+    // Parçacık sistemi oluştur
+    particleSystem = ParticleSystem(maxParticles: 300);
+    add(particleSystem);
 
     // Arkaplan - Gradient ile zenginleştirme
     add(
@@ -138,7 +154,11 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
       _player = PlayerComponent(
         position: Vector2(size.x * 0.2, size.y - groundHeight),
         game: this,
-        color: currentTheme?.playerColor,
+        color: selectedCharacter?.primaryColor ??
+            currentTheme?.playerColor ??
+            Colors.red,
+        secondaryColor: selectedCharacter?.secondaryColor,
+        character: selectedCharacter,
       );
       _player!.isOnGround = true;
       _player!.isJumping = false;
@@ -404,6 +424,48 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
     isGameOver = true;
     print("GAME OVER! Total score: $score");
 
+    // Oyun sonu efektleri
+    // Oyuncunun pozisyonunda kırmızı patlama
+    if (_player != null) {
+      final playerCenterPos = Vector2(_player!.position.x + _player!.width / 2,
+          _player!.position.y - _player!.height / 2);
+
+      // Kırmızı büyük patlama
+      particleSystem.createExplosion(
+        position: playerCenterPos,
+        color: Colors.red.shade600,
+        count: 40,
+        speed: 300,
+        size: 7,
+        lifespan: 1.5,
+      );
+
+      // Duman efekti
+      particleSystem.createSmoke(
+        position: playerCenterPos,
+        count: 25,
+        speed: 100,
+        size: 25,
+        lifespan: 2.5,
+        color: Colors.grey.shade800,
+      );
+
+      // Yıldızlar - oyuncu hala yıldızını kaybetmemiş
+      if (score > 0) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          // Yıldız patlaması biraz gecikmeli olsun
+          particleSystem.createStars(
+            position: Vector2(size.x / 2, size.y / 2 - 100),
+            color: Colors.amber,
+            count: 20,
+            speed: 150,
+            size: 10,
+            lifespan: 1.5,
+          );
+        });
+      }
+    }
+
     // Oyun sonu sesi
     _audioService.playSfx(SoundEffect.gameOver);
 
@@ -414,6 +476,17 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
     // High score kontrolü ve güncelleme
     if (score > highScore) {
       highScore = score;
+
+      // High score kırıldı konfeti efekti
+      Future.delayed(const Duration(milliseconds: 800), () {
+        // Ekranın ortasında konfeti patlaması
+        particleSystem.createConfetti(
+          position: Vector2(size.x / 2, size.y / 2 - 50),
+          count: 100,
+          speed: 350,
+          lifespan: 3.0,
+        );
+      });
 
       // GameState güncelleme
       if (context != null) {
@@ -477,79 +550,67 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
   // Güç-yükseltmelerini güncelle
   void _updatePowerUps(double dt) {
-    // Kalkan süresi
-    if (hasShield) {
-      shieldTimer -= dt;
-
-      // Kalkan efekti göster
-      if (_player != null) {
-        if (shieldTimer % 0.2 < 0.1) {
-          _player!.isInvincible = true;
-        } else {
-          _player!.isInvincible = true;
-        }
-      }
-
-      if (shieldTimer <= 0) {
-        hasShield = false;
-        if (_player != null) {
-          _player!.isInvincible = false;
-        }
-      }
-    }
-
-    // Mıknatıs süresi
+    // Mıknatıs güç-yükseltmesi
     if (hasMagnet) {
       magnetTimer -= dt;
-
-      // Mıknatıs aktifken paraları çek
-      if (_player != null) {
-        for (var collectible in collectibles) {
-          if (collectible.type == CollectibleType.coin) {
-            // Oyuncuya belirli bir mesafedeyse çekmeye başla
-            double distance = (_player!.position - collectible.position).length;
-            if (distance < 250) {
-              // Toplanabilirleri oyuncuya doğru çek
-              final direction =
-                  (_player!.position - collectible.position).normalized();
-              collectible.position += direction * gameSpeed * 1.5 * dt;
-            }
-          }
-        }
-      }
-
       if (magnetTimer <= 0) {
         hasMagnet = false;
       }
     }
 
-    // Yavaş çekim süresi
+    // Kalkan güç-yükseltmesi
+    if (hasShield) {
+      shieldTimer -= dt;
+      if (shieldTimer <= 0) {
+        hasShield = false;
+      }
+    }
+
+    // Yavaş çekim güç-yükseltmesi
     if (hasSlowMotion) {
       slowMotionTimer -= dt;
-
       if (slowMotionTimer <= 0) {
         hasSlowMotion = false;
-        // Yavaşlama bittiğinde hızı geri yükselt
-        gameSpeed = gameSpeed / 0.6;
+
+        // Yavaşlama sona erince hızı normale döndür
+        gameSpeed =
+            initialGameSpeed * (1.0 + (gameTime / 60.0)) * levelSpeedMultiplier;
       }
     }
   }
 
-  // Paraları mıknatıs gibi çek
-  void _attractCollectibles() {
-    for (var collectible in collectibles) {
-      // Oyuncuya belirli mesafede olan paraları çek
-      final distance = _player!.position.distanceTo(collectible.position);
-      if (distance < 200 && collectible.type == CollectibleType.coin) {
-        // Oyuncuya doğru hareket ettir
-        final direction =
-            (_player!.position - collectible.position).normalized();
-        collectible.position += direction * 5;
+  // Hız artışı güç-yükseltmesi - speedBoost için
+  void increaseSpeed(double duration) {
+    // Geçici olarak hızı artır (1.5 kat)
+    gameSpeed *= 1.5;
+
+    // Birkaç saniye sonra normale döndürmek için future kullan
+    Future.delayed(Duration(seconds: duration.toInt()), () {
+      if (!isGameOver && !isPaused) {
+        // Oyun hala devam ediyorsa normal hıza dön
+        gameSpeed =
+            initialGameSpeed * (1.0 + (gameTime / 60.0)) * levelSpeedMultiplier;
       }
+    });
+
+    // Hız artışı parçacık efekti
+    if (_player != null) {
+      final speedBoostPosition = Vector2(
+          _player!.position.x + _player!.width / 2,
+          _player!.position.y - _player!.height / 2);
+
+      particleSystem.createStars(
+        position: speedBoostPosition,
+        color: Colors.orange,
+        count: 15,
+        speed: 180,
+        size: 8,
+        lifespan: 1.2,
+      );
     }
   }
 
-  // Mıknatıs etkisini aktifleştir
+  // Mıknatıs güç-yükseltmesini aktifleştir
   void activateMagnet(double duration) {
     hasMagnet = true;
     magnetTimer = duration;
@@ -689,8 +750,89 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
   // Toplanabilir toplandığında
   void _handleCollectible(CollectibleType type) {
+    // Parçacık efekti oluştur
+    final collectiblePosition = Vector2(
+        _player!.position.x + _player!.width / 2,
+        _player!.position.y - _player!.height / 2);
+
     // Toplama sesi
     _audioService.playSfx(SoundEffect.collect);
+
+    // Toplanan nesneye göre farklı efektler
+    switch (type) {
+      case CollectibleType.coin:
+        // Altın toplandığında sarı parçacık patlaması
+        particleSystem.createExplosion(
+          position: collectiblePosition,
+          color: Colors.amber,
+          count: 15,
+          speed: 150,
+          size: 4,
+          lifespan: 0.8,
+        );
+        break;
+      case CollectibleType.extraLife:
+        // Can toplandığında kırmızı yıldız patlaması
+        particleSystem.createStars(
+          position: collectiblePosition,
+          color: Colors.red,
+          count: 12,
+          speed: 170,
+          size: 8,
+          lifespan: 1.2,
+        );
+        break;
+      case CollectibleType.shield:
+        // Kalkan toplandığında mavi parçacık patlaması
+        particleSystem.createPowerUpEffect(
+          position: collectiblePosition,
+          color: Colors.blue,
+          count: 25,
+          size: 6,
+          lifespan: 1.0,
+        );
+        break;
+      case CollectibleType.magnet:
+        // Mıknatıs toplandığında mor parçacık patlaması
+        particleSystem.createPowerUpEffect(
+          position: collectiblePosition,
+          color: Colors.purple,
+          count: 25,
+          size: 6,
+          lifespan: 1.0,
+        );
+        break;
+      case CollectibleType.slowMotion:
+        // Yavaş çekim toplandığında turkuaz parçacık patlaması
+        particleSystem.createPowerUpEffect(
+          position: collectiblePosition,
+          color: Colors.lightBlueAccent,
+          count: 25,
+          size: 6,
+          lifespan: 1.0,
+        );
+        break;
+      case CollectibleType.scoreBoost:
+        // Skor artırıcı toplandığında yeşil parçacık patlaması
+        particleSystem.createPowerUpEffect(
+          position: collectiblePosition,
+          color: Colors.green,
+          count: 25,
+          size: 6,
+          lifespan: 1.0,
+        );
+        break;
+      case CollectibleType.speedBoost:
+        // Hız artırıcı toplandığında turuncu parçacık patlaması
+        particleSystem.createPowerUpEffect(
+          position: collectiblePosition,
+          color: Colors.orange,
+          count: 25,
+          size: 6,
+          lifespan: 1.0,
+        );
+        break;
+    }
 
     // Güç yükseltme sesi
     if (type != CollectibleType.coin) {
@@ -700,11 +842,54 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
   // Engele çarpma sesi
   void _handleObstacleCollision() {
+    // Çarpışma noktasında parçacık patlaması
+    final collisionPosition = Vector2(_player!.position.x + _player!.width / 2,
+        _player!.position.y - _player!.height / 2);
+
+    // Kırmızı çarpışma patlaması
+    particleSystem.createExplosion(
+      position: collisionPosition,
+      color: Colors.red,
+      count: 25,
+      speed: 200,
+      size: 5,
+      lifespan: 1.0,
+    );
+
+    // Duman efekti
+    particleSystem.createSmoke(
+      position: collisionPosition,
+      count: 12,
+      speed: 80,
+      size: 15,
+      lifespan: 1.5,
+      color: Colors.grey.shade700,
+    );
+
     _audioService.playSfx(SoundEffect.hit);
   }
 
   // Seviye atlandığında
   void _handleLevelUp() {
+    // Seviye atlandığında konfeti patlaması
+    final confettiPosition = Vector2(size.x / 2, size.y / 2);
+    particleSystem.createConfetti(
+      position: confettiPosition,
+      count: 80,
+      speed: 300,
+      lifespan: 3.0,
+    );
+
+    // Seviye atlandı yıldız efekti
+    particleSystem.createStars(
+      position: confettiPosition,
+      color: Colors.amber,
+      count: 25,
+      speed: 200,
+      size: 12,
+      lifespan: 1.5,
+    );
+
     _audioService.playSfx(SoundEffect.levelUp);
   }
 
@@ -765,6 +950,8 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
     required Vector2 position,
     required this.game,
     Color? color,
+    Color? secondaryColor,
+    PlayerCharacter? character,
   })  : playerPaint = Paint()..color = color ?? Colors.red,
         super(
           position: position,
@@ -1188,6 +1375,10 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
           game.increaseCombo();
           game.increaseCombo(); // Extra combo artışı
           break;
+        case CollectibleType.speedBoost:
+          // Hız artışı
+          game.increaseSpeed(2.0); // 2 saniyelik hız artışı
+          break;
         default:
           game.increaseScore(5); // Bilinmeyen toplanabilirler için az puan
       }
@@ -1227,7 +1418,7 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
     this.type = ObstacleType.cube,
     Color? color,
   })  : obstaclePaint = Paint()..color = color ?? Colors.redAccent,
-        isSpecial = math.Random().nextDouble() < 0.15, // %15 şansla özel engel
+        isSpecial = math.Random().nextDouble() < 0.15, // %15 şansla özel engel,
         super(position: position, anchor: Anchor.bottomLeft) {
     // Engel tipine göre farklı boyut ve renkler
     switch (type) {
@@ -1433,7 +1624,7 @@ class ObstacleComponent extends PositionComponent with CollisionCallbacks {
         );
       }
 
-      // Daha güzel tuğla çizgileri çiz
+      // Daha görsel tuğla çizgileri çiz
       final brickLines = Paint()
         ..color = Colors.black.withOpacity(0.2)
         ..strokeWidth = 1.0
@@ -1863,9 +2054,12 @@ class GrassComponent extends PositionComponent {
   final Paint _groundPaint;
   final Paint _grassPaint;
   final Paint _detailPaint;
+  final Paint _grassTopPaint;
+  final Paint _grassTipPaint;
 
   // Çimen sapları için önişlenmiş yollar
-  late final List<Path> _grassBlades;
+  final List<Path> _grassBlades = [];
+  final List<Path> _groundDetails = [];
   bool _isPrerendered = false;
 
   GrassComponent(
@@ -1873,10 +2067,9 @@ class GrassComponent extends PositionComponent {
       : _groundPaint = Paint()..color = groundColor ?? Colors.brown.shade700,
         _grassPaint = Paint()..color = Colors.green.shade800,
         _detailPaint = Paint()..color = Colors.green.shade600,
-        super(position: position, size: size) {
-    // Lazy initialization için boş başlat
-    _grassBlades = [];
-  }
+        _grassTopPaint = Paint()..color = Colors.green.shade500,
+        _grassTipPaint = Paint()..color = Colors.green.shade300,
+        super(position: position, size: size);
 
   void _prerenderGrass() {
     if (_isPrerendered) return;
@@ -1884,20 +2077,48 @@ class GrassComponent extends PositionComponent {
     // Sabit tohum ile rastgele değerler üretme
     final random = math.Random(42);
 
-    // Çimen saplarını önişle - sayıyı azalt
-    final grassBladesCount = 5; // Çok daha az çimen sapı - performans için
+    // Çimen saplarını önişle - daha estetik, çeşitli boyutlarda
+    final grassBladesCount = 15; // Estetik için biraz daha fazla çimen
 
     for (int i = 0; i < grassBladesCount; i++) {
-      final x = i * (size.x / grassBladesCount) + random.nextDouble() * 10;
-      final height = 2 + random.nextDouble() * 4;
+      final x = random.nextDouble() * size.x;
+      final height = 2 + random.nextDouble() * 6;
+      final width = 1 + random.nextDouble() * 2;
 
-      // Çimen sapı
+      // Daha detaylı çimen sapı
       final grassBlade = Path();
       grassBlade.moveTo(x, 0);
-      grassBlade.lineTo(x + (random.nextBool() ? 3 : -3), -height);
-      grassBlade.lineTo(x, 0);
+
+      // Rüzgar etkisiyle hafifçe kıvrım
+      final controlX = x + (random.nextBool() ? width : -width) * 1.5;
+      grassBlade.quadraticBezierTo(controlX, -height * 0.6,
+          x + (random.nextBool() ? width : -width), -height);
+
+      // Çimen sapı alt genişliği
+      grassBlade.lineTo(x + width * 0.5, 0);
+      grassBlade.close();
 
       _grassBlades.add(grassBlade);
+    }
+
+    // Zemin detayları - küçük taşlar ve çukurcuklar
+    for (int i = 0; i < 8; i++) {
+      final x = random.nextDouble() * size.x;
+      final y = random.nextDouble() * size.y * 0.7 + size.y * 0.3;
+      final detailSize = 1 + random.nextDouble() * 3;
+
+      final groundDetail = Path();
+      if (random.nextBool()) {
+        // Taş
+        groundDetail.addOval(Rect.fromCenter(
+            center: Offset(x, y), width: detailSize, height: detailSize * 0.7));
+      } else {
+        // Çukur
+        groundDetail.addOval(Rect.fromCenter(
+            center: Offset(x, y), width: detailSize * 1.5, height: detailSize));
+      }
+
+      _groundDetails.add(groundDetail);
     }
 
     _isPrerendered = true;
@@ -1905,125 +2126,263 @@ class GrassComponent extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    // Zemin rengi
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), _groundPaint);
+    // Zemin rengi - gradient ile derinlik kat
+    final groundRect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final groundGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        HSLColor.fromColor(_groundPaint.color).withLightness(0.35).toColor(),
+        HSLColor.fromColor(_groundPaint.color).withLightness(0.25).toColor(),
+      ],
+    ).createShader(groundRect);
 
-    // Çimen üst kısmı
-    final grassTopHeight = size.y * 0.3;
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.x, grassTopHeight), _grassPaint);
+    canvas.drawRect(groundRect, Paint()..shader = groundGradient);
+
+    // Çimen üst kısmı - gradient ile derinlik kat
+    final grassTopHeight = size.y * 0.25;
+    final grassRect = Rect.fromLTWH(0, 0, size.x, grassTopHeight);
+    final grassGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        _grassTopPaint.color,
+        _grassPaint.color,
+      ],
+    ).createShader(grassRect);
+
+    canvas.drawRect(grassRect, Paint()..shader = grassGradient);
 
     // Lazy olarak çimenleri hazırla
     _prerenderGrass();
 
-    // Çimen ayrıntıları - optimize edilmiş
+    // Zemin detayları - null kontrolü ekle
+    if (_groundDetails.isNotEmpty) {
+      for (final detailPath in _groundDetails) {
+        final paint = Paint()
+          ..color = HSLColor.fromColor(_groundPaint.color)
+              .withLightness(detailPath.getBounds().height > 2 ? 0.2 : 0.35)
+              .toColor();
+        canvas.drawPath(detailPath, paint);
+      }
+    }
+
+    // Çimen ayrıntıları - null kontrolü ekle
     if (_grassBlades.isNotEmpty) {
       canvas.save();
-      canvas.translate(0, grassTopHeight);
+      canvas.translate(0, grassTopHeight * 0.9); // Zemine biraz batsın
 
-      // Performans için sadece birkaç çimen sapı göster
-      for (int i = 0; i < math.min(5, _grassBlades.length); i++) {
-        canvas.drawPath(_grassBlades[i], _detailPaint);
+      for (final blade in _grassBlades) {
+        // Bazı çimen sapları daha açık renkli olsun
+        final useLight = blade.getBounds().height > 4;
+        final paint = useLight ? _grassTipPaint : _detailPaint;
+        canvas.drawPath(blade, paint);
       }
 
       canvas.restore();
     }
+
+    super.render(canvas); // Üst sınıf render metodunu çağır
   }
 }
 
 class MountainComponent extends PositionComponent {
   final Paint _mountainPaint;
-  final Paint _snowPaint = Paint()..color = Colors.white.withOpacity(0.8);
+  final Paint _snowPaint = Paint()..color = Colors.white.withOpacity(0.9);
+  final Paint _shadowPaint;
+  final Paint _lightPaint;
   final Paint _detailPaint;
   final Path _mountainPath = Path();
   final Path _snowPath = Path();
   final List<Path> _detailPaths = [];
+  final List<Path> _ridgePaths = [];
   bool _isPrerendered = false;
 
   MountainComponent(
       {required Vector2 position, required Vector2 size, required Color color})
       : _mountainPaint = Paint()..color = color,
+        _shadowPaint = Paint()
+          ..color = HSLColor.fromColor(color)
+              .withLightness(HSLColor.fromColor(color).lightness * 0.7)
+              .toColor()
+          ..style = PaintingStyle.fill,
+        _lightPaint = Paint()
+          ..color = HSLColor.fromColor(color)
+              .withLightness(
+                  math.min(0.8, HSLColor.fromColor(color).lightness * 1.3))
+              .toColor()
+          ..style = PaintingStyle.fill,
         _detailPaint = Paint()
           ..color = color.withOpacity(0.7)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
-        super(position: position, size: size) {
-    // Dağ şeklini hazırla ama render'da kullan
-  }
+        super(position: position, size: size);
 
   // Dağı hazırlama - lazy initialization için
   void _prerenderMountain() {
     if (_isPrerendered) return;
 
-    final random = math.Random(position.x.toInt());
+    final random = math.Random(position.x.toInt() * position.y.toInt());
 
-    // Dağ silüeti için 3-4 tepe oluştur (sayıyı azalt)
-    final peakCount = 3;
+    // Dağ silüeti için tepe noktaları oluştur
+    final peakCount = 4 + random.nextInt(3); // 4-6 tepe
     final points = <Offset>[];
 
-    // Başlangıç ve bitiş noktaları (zemin)
+    // Başlangıç noktası (zemin)
     points.add(Offset(0, size.y));
 
-    // Dağ tepeleri
+    // Dağ tepeleri - daha doğal eğrilik için
+    double prevHeight = size.y;
+    double prevX = 0;
+
     for (int i = 0; i < peakCount; i++) {
-      final peakX = size.x * (i + 1) / (peakCount + 1);
-      final peakHeight = random.nextDouble() * size.y * 0.7 + size.y * 0.2;
+      final peakX = size.x * (i + 0.5) / (peakCount);
+
+      // Önceki tepe ile arasında çok fark olmasın, daha doğal görünsün
+      final maxChange = size.y * 0.3;
+      final minHeight = math.max(prevHeight - maxChange, size.y * 0.3);
+      final maxHeight = math.min(prevHeight + maxChange, size.y * 0.9);
+
+      final peakHeight =
+          random.nextDouble() * (maxHeight - minHeight) + minHeight;
       points.add(Offset(peakX, size.y - peakHeight));
+
+      // Ara kontrol noktaları için bilgileri sakla
+      prevHeight = peakHeight;
+      prevX = peakX;
     }
 
     // Son nokta (zemin)
     points.add(Offset(size.x, size.y));
 
-    // Dağ şeklini oluştur
+    // Dağ şeklini daha doğal çiz - Bezier eğrileriyle
     _mountainPath.moveTo(points.first.dx, points.first.dy);
 
-    // Basitleştirilmiş dağ çizimi - performans için
-    for (int i = 1; i < points.length; i++) {
-      _mountainPath.lineTo(points[i].dx, points[i].dy);
+    // İlk tepeye düz çizgi
+    _mountainPath.lineTo(points[1].dx, points[1].dy);
+
+    // Tepeler arası doğal eğriler
+    for (int i = 1; i < points.length - 2; i++) {
+      final p1 = points[i];
+      final p2 = points[i + 1];
+
+      // Kontrol noktası - iki tepe arasında
+      final controlX = (p1.dx + p2.dx) / 2;
+      final controlY = p1.dy < p2.dy
+          ? p1.dy + (p2.dy - p1.dy) * 0.3 // Alçalan eğri
+          : p2.dy + (p1.dy - p2.dy) * 0.3; // Yükselen eğri
+
+      _mountainPath.quadraticBezierTo(controlX, controlY, p2.dx, p2.dy);
     }
 
+    // Son noktaya düz çizgi
+    _mountainPath.lineTo(points.last.dx, points.last.dy);
     _mountainPath.close();
 
-    // Kar - sadece en yüksek tepeye ekle (performans için)
-    int highestPeakIndex = 0;
-    double highestPoint = size.y;
-
+    // Kar - en yüksek iki tepeye ekle
+    List<int> highestPeakIndices = [];
     for (int i = 1; i < points.length - 1; i++) {
-      if (points[i].dy < highestPoint) {
-        highestPoint = points[i].dy;
-        highestPeakIndex = i;
+      if (highestPeakIndices.length < 2) {
+        highestPeakIndices.add(i);
+      } else {
+        // En düşük kar tepesini bul ve karşılaştır
+        int lowestIdx = highestPeakIndices
+            .reduce((a, b) => points[a].dy > points[b].dy ? a : b);
+
+        if (points[i].dy < points[lowestIdx].dy) {
+          highestPeakIndices.remove(lowestIdx);
+          highestPeakIndices.add(i);
+        }
       }
     }
 
-    // Sadece en yüksek tepeye kar ekle
-    if (highestPeakIndex > 0) {
-      final peakPoint = points[highestPeakIndex];
+    // Karlı tepeleri çiz
+    for (final idx in highestPeakIndices) {
+      final peakPoint = points[idx];
       final snowPath = Path();
-      final snowWidth = size.x * 0.05 + random.nextDouble() * size.x * 0.05;
+      final snowHeight = size.y *
+          0.1 *
+          (1 - peakPoint.dy / size.y) *
+          2; // Tepe yüksekliğine göre kar
+      final snowWidth = size.x * 0.07 + random.nextDouble() * size.x * 0.07;
 
+      // Daha doğal kar tepesi
       snowPath.moveTo(peakPoint.dx, peakPoint.dy);
-      snowPath.lineTo(peakPoint.dx - snowWidth, peakPoint.dy + snowWidth * 1.5);
-      snowPath.lineTo(peakPoint.dx + snowWidth, peakPoint.dy + snowWidth * 1.5);
+
+      // Sol taraf
+      final leftX = peakPoint.dx - snowWidth;
+      final leftY = peakPoint.dy + snowHeight;
+      snowPath.quadraticBezierTo(peakPoint.dx - snowWidth * 0.5,
+          peakPoint.dy + snowHeight * 0.3, leftX, leftY);
+
+      // Sağ taraf
+      final rightX = peakPoint.dx + snowWidth;
+      final rightY = peakPoint.dy + snowHeight;
+      snowPath.quadraticBezierTo(peakPoint.dx + snowWidth * 0.5,
+          peakPoint.dy + snowHeight * 0.3, rightX, rightY);
+
       snowPath.close();
 
       // Ana kar path'ine ekle
       _snowPath.addPath(snowPath, Offset.zero);
     }
 
-    // Sadece bir detay çizgisi ekle (performans için)
-    final startX = random.nextDouble() * size.x * 0.8 + size.x * 0.1;
-    final startY = random.nextDouble() * size.y * 0.3 + size.y * 0.1;
+    // Dağ detayları - çatlaklar ve gölgeler
+    for (int i = 0; i < 3; i++) {
+      // Farklı yerlerde başla
+      final startX = random.nextDouble() * size.x * 0.8 + size.x * 0.1;
+      final startY = size.y * 0.2 + random.nextDouble() * size.y * 0.4;
 
-    final detailPath = Path();
-    detailPath.moveTo(startX, startY);
+      // Dağ içinde kalacak şekilde sınırla
+      if (!_isPointInPath(_mountainPath, Offset(startX, startY))) continue;
 
-    // Son nokta aşağıya doğru
-    final endX = startX + (random.nextDouble() * size.x * 0.2 - size.x * 0.1);
-    detailPath.lineTo(
-        endX, startY + size.y * (0.3 + random.nextDouble() * 0.4));
+      final detailPath = Path();
+      detailPath.moveTo(startX, startY);
 
-    _detailPaths.add(detailPath);
+      // Daha doğal çatlak - zigzag şekil
+      double currentX = startX;
+      double currentY = startY;
+
+      final segmentCount = 2 + random.nextInt(3);
+      for (int j = 0; j < segmentCount; j++) {
+        // Bir sonraki nokta
+        currentX += random.nextDouble() * size.x * 0.1 - size.x * 0.05;
+        currentY += random.nextDouble() * size.y * 0.15;
+
+        detailPath.lineTo(currentX, currentY);
+      }
+
+      _detailPaths.add(detailPath);
+    }
+
+    // Dağ sırtları (ridge) - ışık ve gölge için
+    for (int i = 1; i < points.length - 2; i++) {
+      final p1 = points[i];
+      final p2 = points[i + 1];
+
+      // Kontrol noktası - iki tepe arasında
+      final controlX = (p1.dx + p2.dx) / 2;
+      final controlY = p1.dy < p2.dy
+          ? p1.dy + (p2.dy - p1.dy) * 0.3
+          : p2.dy + (p1.dy - p2.dy) * 0.3;
+
+      final ridgePath = Path();
+      ridgePath.moveTo(p1.dx, p1.dy);
+      ridgePath.quadraticBezierTo(controlX, controlY, p2.dx, p2.dy);
+
+      _ridgePaths.add(ridgePath);
+    }
 
     _isPrerendered = true;
+  }
+
+  // Bir noktanın path içinde olup olmadığını kontrol et
+  bool _isPointInPath(Path path, Offset point) {
+    final bounds = path.getBounds();
+    if (!bounds.contains(point)) return false;
+
+    // Basit sınırlama kontrolü - daha gelişmiş kontrol gerekebilir
+    return true;
   }
 
   @override
@@ -2031,16 +2390,44 @@ class MountainComponent extends PositionComponent {
     // Lazy olarak dağı hazırla
     _prerenderMountain();
 
-    // Ana dağ şeklini çiz
-    canvas.drawPath(_mountainPath, _mountainPaint);
+    // Ana dağ şeklini çiz - gradient ile zenginleştir
+    final mountainGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        _lightPaint.color,
+        _mountainPaint.color,
+        _shadowPaint.color,
+      ],
+      stops: [0.2, 0.5, 0.9],
+    ).createShader(_mountainPath.getBounds());
 
-    // Kar tepelerini çiz
-    canvas.drawPath(_snowPath, _snowPaint);
+    canvas.drawPath(_mountainPath, Paint()..shader = mountainGradient);
 
-    // Sadece bir detay çizgisi çiz
-    if (_detailPaths.isNotEmpty) {
-      canvas.drawPath(_detailPaths.first, _detailPaint);
+    // Dağ sırtlarını çiz - ışık ve gölge efekti
+    for (int i = 0; i < _ridgePaths.length; i++) {
+      // Dağ yönüne göre ışık veya gölge efekti
+      final isLightRidge = i % 2 == 0;
+      canvas.drawPath(
+          _ridgePaths[i], isLightRidge ? _lightPaint : _shadowPaint);
     }
+
+    // Detayları çiz - çatlaklar vb.
+    for (final path in _detailPaths) {
+      canvas.drawPath(path, _detailPaint);
+    }
+
+    // Kar tepelerini çiz - parlak efekt
+    final snowGradient = RadialGradient(
+      center: Alignment.topCenter,
+      radius: 0.8,
+      colors: [
+        Colors.white,
+        _snowPaint.color,
+      ],
+    ).createShader(_snowPath.getBounds());
+
+    canvas.drawPath(_snowPath, Paint()..shader = snowGradient);
   }
 }
 
