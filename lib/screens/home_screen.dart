@@ -13,236 +13,450 @@ class HomeScreen extends StatelessWidget {
     final gameState = Provider.of<GameState>(context);
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
-    final buttonWidth = isSmallScreen ? size.width * 0.7 : 320.0;
 
     return Scaffold(
       body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1a237e),
-              Color(0xFF3949ab),
-              Color(0xFF1e88e5),
-            ],
+            colors: gameState.currentTheme.backgroundGradient,
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: size.height -
-                    MediaQuery.of(context).padding.top -
-                    MediaQuery.of(context).padding.bottom,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(height: size.height * 0.08),
-
-                    // Oyun başlığı
-                    Hero(
-                      tag: 'gameTitle',
-                      child: ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Colors.amber, Colors.orange],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ).createShader(bounds),
-                        child: Text(
-                          'TEMPLE RUN',
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 42 : 56,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                            shadows: const [
-                              Shadow(
-                                blurRadius: 15.0,
-                                color: Colors.black54,
-                                offset: Offset(3.0, 3.0),
-                              ),
-                            ],
-                          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Üst kısım: Başlık ve yüksek skor
+              Expanded(
+                flex: 2,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'ENDLESS RUNNER',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 10,
+                              color: Colors.black45,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-
-                    SizedBox(height: size.height * 0.06),
-
-                    // Yüksek skor
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      width: buttonWidth,
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white24, width: 2),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black38,
-                            blurRadius: 10,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'EN YÜKSEK SKOR',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber,
-                              letterSpacing: 1.5,
+                      const SizedBox(height: 10),
+                      Text(
+                        'En Yüksek Skor: ${gameState.highScore}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 5,
+                              color: Colors.black45,
+                              offset: Offset(1, 1),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Colors.white, Colors.amber],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ).createShader(bounds),
-                            child: Text(
-                              '${gameState.highScore}',
-                              style: const TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-
-                    SizedBox(height: size.height * 0.06),
-
-                    // Başlat butonu
-                    _buildAnimatedButton(
-                      context,
-                      'OYNA',
-                      const [Colors.orange, Colors.deepOrange],
-                      28,
-                      buttonWidth,
-                      () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const GameScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    SizedBox(height: size.height * 0.03),
-
-                    // Tema mağazası butonu
-                    _buildAnimatedButton(
-                      context,
-                      'TEMALAR',
-                      const [Colors.purple, Colors.deepPurple],
-                      22,
-                      buttonWidth,
-                      () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const ThemeShopScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    SizedBox(height: size.height * 0.05),
-
-                    // Altın sayısı
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 24),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      const SizedBox(height: 5),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
                             Icons.monetization_on,
                             color: Colors.amber,
-                            size: 36,
+                            size: 18,
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 5),
                           Text(
                             '${gameState.coins}',
                             style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
                               color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
-                    ),
-
-                    SizedBox(height: size.height * 0.05),
-                  ],
+                      const SizedBox(height: 20),
+                      // Seviye bilgisi göster
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              "Seviye ${gameState.playerLevel}: ${gameState.currentLevel.name}",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.amber,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // XP ilerleme çubuğu
+                            SizedBox(
+                              width: 200,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: LinearProgressIndicator(
+                                  value: gameState.xpPercentage,
+                                  backgroundColor: Colors.grey[700],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.amber,
+                                  ),
+                                  minHeight: 10,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "${gameState.currentXP} / ${gameState.xpForNextLevel} XP",
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+
+              // Orta kısım: Menü butonları
+              Expanded(
+                flex: 3,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Oyna butonu
+                          MenuButton(
+                            text: 'OYNA',
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const GameScreen(),
+                                ),
+                              );
+                            },
+                            width: constraints.maxWidth * 0.7,
+                            height: 60,
+                            color: gameState.currentTheme.primaryColor,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Seviye Seç butonu
+                          MenuButton(
+                            text: 'SEVİYE SEÇ',
+                            onPressed: () {
+                              _showLevelSelectDialog(context);
+                            },
+                            width: constraints.maxWidth * 0.7,
+                            height: 60,
+                            color: Colors.orangeAccent,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Tema Mağazası butonu
+                          MenuButton(
+                            text: 'TEMA MAĞAZASI',
+                            onPressed: () {
+                              _showThemeShopDialog(context);
+                            },
+                            width: constraints.maxWidth * 0.7,
+                            height: 60,
+                            color: Colors.purpleAccent,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Ayarlar butonu
+                          MenuButton(
+                            text: 'AYARLAR',
+                            onPressed: () {
+                              // TODO: Ayarlar sayfasını göster
+                            },
+                            width: constraints.maxWidth * 0.7,
+                            height: 60,
+                            color: Colors.blueGrey,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // Alt kısım: Telif hakkı bilgisi
+              Expanded(
+                flex: 1,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        '© 2023 Endless Runner',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Made with Flutter & Flame',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      // Geliştirici bilgisi
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black38,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Text(
+                          'Geliştirici: Barış',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildAnimatedButton(
-    BuildContext context,
-    String text,
-    List<Color> colors,
-    double fontSize,
-    double width,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: width,
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: colors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+  // Tema mağazası diyalog penceresi
+  void _showThemeShopDialog(BuildContext context) {
+    // ... existing code ...
+  }
+
+  // Seviye seçim diyalog penceresi
+  void _showLevelSelectDialog(BuildContext context) {
+    final gameState = Provider.of<GameState>(context, listen: false);
+    final levels = gameState.availableLevels;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.blue.shade900, Colors.indigo.shade900],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black38,
+                  blurRadius: 15,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'SEVİYE SEÇ',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Her seviye farklı zorluk ve puan çarpanları içerir',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 300,
+                  child: ListView.builder(
+                    itemCount: levels.length,
+                    itemBuilder: (context, index) {
+                      final level = levels[index];
+                      final bool isUnlocked = level.isUnlocked;
+                      final bool isCurrent =
+                          level.id == gameState.currentLevelId;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: isCurrent
+                              ? Colors.amber.withOpacity(0.3)
+                              : Colors.black38,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color:
+                                isCurrent ? Colors.amber : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                isUnlocked ? Colors.green : Colors.grey,
+                            child: Text(
+                              '${level.id}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            level.name,
+                            style: TextStyle(
+                              color: isUnlocked ? Colors.white : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            level.description,
+                            style: TextStyle(
+                              color: isUnlocked
+                                  ? Colors.white70
+                                  : Colors.grey.shade700,
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Puan: ${(level.scoreMultiplier).toStringAsFixed(1)}x',
+                                style: TextStyle(
+                                  color:
+                                      isUnlocked ? Colors.white70 : Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                'Hız: ${(level.speedMultiplier).toStringAsFixed(1)}x',
+                                style: TextStyle(
+                                  color:
+                                      isUnlocked ? Colors.white70 : Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          enabled: isUnlocked,
+                          onTap: isUnlocked
+                              ? () {
+                                  // Seviyeyi seç
+                                  gameState.setCurrentLevel(level.id);
+                                  Navigator.of(context).pop();
+                                }
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                MenuButton(
+                  text: 'KAPAT',
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  width: 120,
+                  height: 50,
+                  color: Colors.redAccent,
+                ),
+              ],
+            ),
           ),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
+        );
+      },
+    );
+  }
+}
+
+// Menü butonları için özel widget
+class MenuButton extends StatelessWidget {
+  final String text;
+  final VoidCallback onPressed;
+  final double width;
+  final double height;
+  final Color color;
+
+  const MenuButton({
+    Key? key,
+    required this.text,
+    required this.onPressed,
+    required this.width,
+    required this.height,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black38,
-              offset: Offset(0, 5),
+              color: color.withOpacity(0.5),
               blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Center(
           child: Text(
             text,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w900,
+            style: const TextStyle(
               color: Colors.white,
-              letterSpacing: 3,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
             ),
           ),
         ),

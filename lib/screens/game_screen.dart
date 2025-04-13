@@ -13,45 +13,44 @@ import '../models/obstacle.dart';
 import '../models/collectible.dart';
 import 'dart:math';
 
-class RunnerGame extends FlameGame with HasCollisionDetection {
-  PlayerComponent? _player;
-  // PlayerComponent'i getter üzerinden güvenli şekilde sağlayalım
-  PlayerComponent get player {
-    if (_player == null && hasLayout) {
-      _player = PlayerComponent(
-        position: Vector2(size.x * 0.2, size.y - groundHeight),
-        game: this,
-      );
-      add(_player!);
-    }
-
-    return _player ?? PlayerComponent(position: Vector2(0, 0), game: this);
-  }
-
-  late TextComponent scoreText;
-  late TextComponent fpsText;
-  late Timer obstacleSpawnTimer;
-  late Timer collectibleSpawnTimer;
-
-  // FPS ölçümü için değişkenler
-  double _fps = 0;
-  double _fpsUpdateTime = 0;
-  final double _fpsUpdateInterval = 0.5; // Yarım saniyede bir güncelle
-
+class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
+  // Oyun değişkenleri
+  double groundHeight = 80.0;
+  double gameSpeed = 300.0;
+  double initialGameSpeed = 300.0;
   int score = 0;
   int highScore = 0;
   int lives = 3;
-  bool isGameOver = false;
   bool isPaused = false;
-  double gameSpeed = 200; // pixel/saniye
-  double groundHeight = 50;
+  bool isGameOver = false;
 
+  // Seviye sistemi için değişkenler
+  Level? currentLevel;
+  double levelSpeedMultiplier = 1.0;
+  double levelScoreMultiplier = 1.0;
+  int levelObstacleFrequency = 2;
+  bool showLevelUpMessage = false;
+  String levelUpMessage = "";
+  double levelUpMessageTimer = 0;
+
+  // Oyun öğeleri
+  PlayerComponent? _player;
+  late TextComponent scoreText;
   final List<ObstacleComponent> obstacles = [];
   final List<CollectibleComponent> collectibles = [];
 
-  // State değişikliklerini bildirmek için callback
-  VoidCallback? onLifeLost;
-  VoidCallback? onGameOver;
+  // Zamanlayıcılar
+  late Timer obstacleSpawnTimer;
+  late Timer collectibleSpawnTimer;
+
+  // FPS hesaplama
+  double _fps = 0;
+  double _fpsUpdateTime = 0;
+  final double _fpsUpdateInterval = 0.5;
+
+  // Callback fonksiyonları
+  Function()? onGameOver;
+  Function()? onLifeLost;
 
   // Zorluk seviyeleri için ekstra değişkenler
   double gameTime = 0; // Toplam oyun süresi
@@ -84,6 +83,22 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
     // Mevcut temayı al
     final currentTheme = gameState?.currentTheme;
+
+    // Mevcut seviyeyi al ve oyun değişkenlerini ayarla
+    if (gameState != null) {
+      currentLevel = gameState.currentLevel;
+
+      // Seviye çarpanlarını ayarla
+      levelSpeedMultiplier = currentLevel?.speedMultiplier ?? 1.0;
+      levelScoreMultiplier = currentLevel?.scoreMultiplier ?? 1.0;
+      levelObstacleFrequency = currentLevel?.obstacleFrequency ?? 2;
+
+      // Başlangıç hızını seviyeye göre ayarla
+      initialGameSpeed = 300.0 * levelSpeedMultiplier;
+      gameSpeed = initialGameSpeed;
+
+      print("Seviye yüklendi: ${currentLevel?.name}, Hız: $gameSpeed");
+    }
 
     // Arkaplan - Gradient ile zenginleştirme
     add(
@@ -144,8 +159,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     );
     add(scoreText);
 
-    // Engel oluşturma zamanlayıcısı
-    obstacleSpawnTimer = Timer(2, onTick: _spawnObstacle, repeat: true);
+    // Engel oluşturma zamanlayıcısı - seviye bazlı frekans
+    obstacleSpawnTimer = Timer(levelObstacleFrequency.toDouble(),
+        onTick: _spawnObstacle, repeat: true);
 
     // Toplanabilir oluşturma zamanlayıcısı
     collectibleSpawnTimer = Timer(3, onTick: _spawnCollectible, repeat: true);
@@ -158,25 +174,39 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
   @override
   void update(double dt) {
-    if (isPaused || isGameOver) return;
-
-    // FPS hesapla ve güncelle
+    // FPS hesaplaması
     _updateFps(dt);
 
-    // Oyun süresini güncelle
+    // Toplam oyun süresini artır
     gameTime += dt;
 
-    // Oyun hızını zamanla artır (zorluk arttırma)
-    gameSpeed = math.min(
-      gameSpeed + gameSpeedIncreaseRate * dt * difficultyMultiplier,
-      maxGameSpeed,
-    );
+    // Seviye atlandı mesajı gösteriliyorsa süresini azalt
+    if (showLevelUpMessage) {
+      levelUpMessageTimer -= dt;
+      if (levelUpMessageTimer <= 0) {
+        showLevelUpMessage = false;
+      }
+    }
 
-    // Güç-yükseltmelerini güncelle
-    _updatePowerUps(dt);
+    // Oyun durdurulmuşsa veya bitmişse güncelleme yapma
+    if (isPaused || isGameOver) return;
 
+    // Zamanlayıcıları güncelle
     obstacleSpawnTimer.update(dt);
     collectibleSpawnTimer.update(dt);
+
+    // Zorluk seviyesini artır (oyun süresi ilerledikçe)
+    if (gameSpeed < maxGameSpeed * levelSpeedMultiplier) {
+      gameSpeed += gameSpeedIncreaseRate * levelSpeedMultiplier * dt;
+    }
+
+    // Güç yükseltmelerini yönet
+    _updatePowerUps(dt);
+
+    // Oyuncuyu hareket ettir
+    if (_player != null) {
+      _player!.update(dt);
+    }
 
     // Engelleri hareket ettir
     for (var obstacle in [...obstacles]) {
@@ -206,11 +236,31 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     super.update(dt);
   }
 
+  // Seviyeye uygun engel oluşturma sıklığı
   void _spawnObstacle() {
     if (isPaused || isGameOver) return;
 
     final rng = math.Random();
-    final type = ObstacleType.values[rng.nextInt(ObstacleType.values.length)];
+
+    // Seviye bazlı zorluk ayarlaması - daha yüksek seviyelerde daha karmaşık engeller
+    List<ObstacleType> availableTypes = [];
+
+    // Seviye 1-2: Temel engeller
+    availableTypes.add(ObstacleType.cube);
+
+    // Seviye 3+: Daha karmaşık engeller ekle
+    if (currentLevel != null && currentLevel!.id >= 3) {
+      availableTypes.add(ObstacleType.wall);
+      availableTypes.add(ObstacleType.ramp);
+    }
+
+    // Seviye 5+: Çukur engelini ekle (en zoru)
+    if (currentLevel != null && currentLevel!.id >= 5) {
+      availableTypes.add(ObstacleType.hole);
+    }
+
+    // Rastgele engel seç
+    final type = availableTypes[rng.nextInt(availableTypes.length)];
     double yPosition = size.y - groundHeight;
 
     // Engel tipine göre zemine oturmasını sağla
@@ -288,10 +338,41 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   }
 
   void increaseScore(int amount) {
+    // Seviye çarpanını uygula
+    final adjustedAmount = (amount * levelScoreMultiplier).toInt();
+
     // Mevcut combo'ya göre puan artışını ayarla
-    final int bonusAmount = (amount * (1 + combo * 0.1)).toInt();
+    final int bonusAmount = (adjustedAmount * (1 + combo * 0.1)).toInt();
     score += bonusAmount;
     scoreText.text = 'SCORE: $score';
+
+    // GameState'e skoru bildir
+    if (context != null) {
+      final gameState = Provider.of<GameState>(context!, listen: false);
+      gameState.addScore(bonusAmount);
+
+      // Seviye kontrolü - seviye atladıysa mesaj göster
+      if (gameState.playerLevel > (currentLevel?.id ?? 1)) {
+        // Yeni seviyeyi al
+        currentLevel = gameState.currentLevel;
+
+        // Seviye mesajını göster
+        showLevelUpMessage = true;
+        levelUpMessage = "Seviye Atladın: ${currentLevel?.name}";
+        levelUpMessageTimer = 3.0; // 3 saniye göster
+
+        // Oyun değişkenlerini güncelle
+        levelSpeedMultiplier = currentLevel?.speedMultiplier ?? 1.0;
+        levelScoreMultiplier = currentLevel?.scoreMultiplier ?? 1.0;
+        levelObstacleFrequency = currentLevel?.obstacleFrequency ?? 2;
+
+        // Zamanlayıcıyı güncelle
+        obstacleSpawnTimer = Timer(levelObstacleFrequency.toDouble(),
+            onTick: _spawnObstacle, repeat: true);
+
+        print("Seviye atlandı! Yeni seviye: ${currentLevel?.name}");
+      }
+    }
   }
 
   void loseLife() {
@@ -333,12 +414,12 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
   // Doğrudan zıplama başlatmak için metod
   void startPlayerJumpCharge() {
-    player.startJumpCharge();
+    _player!.startJumpCharge();
   }
 
   // Doğrudan zıplama bitirmek için metod
   void executePlayerJump() {
-    player.executeJump();
+    _player!.executeJump();
   }
 
   // Bulutlar ekle (dekorasyon)
@@ -373,31 +454,60 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
 
   // Güç-yükseltmelerini güncelle
   void _updatePowerUps(double dt) {
-    // Mıknatıs etkisini güncelle
-    if (hasMagnet) {
-      magnetTimer -= dt;
-      if (magnetTimer <= 0) {
-        hasMagnet = false;
-      } else {
-        _attractCollectibles();
-      }
-    }
-
-    // Kalkan etkisini güncelle
+    // Kalkan süresi
     if (hasShield) {
       shieldTimer -= dt;
+
+      // Kalkan efekti göster
+      if (_player != null) {
+        if (shieldTimer % 0.2 < 0.1) {
+          _player!.isInvincible = true;
+        } else {
+          _player!.isInvincible = true;
+        }
+      }
+
       if (shieldTimer <= 0) {
         hasShield = false;
-        player.isInvincible = false;
+        if (_player != null) {
+          _player!.isInvincible = false;
+        }
       }
     }
 
-    // Yavaş çekim etkisini güncelle
+    // Mıknatıs süresi
+    if (hasMagnet) {
+      magnetTimer -= dt;
+
+      // Mıknatıs aktifken paraları çek
+      if (_player != null) {
+        for (var collectible in collectibles) {
+          if (collectible.type == CollectibleType.coin) {
+            // Oyuncuya belirli bir mesafedeyse çekmeye başla
+            double distance = (_player!.position - collectible.position).length;
+            if (distance < 250) {
+              // Toplanabilirleri oyuncuya doğru çek
+              final direction =
+                  (_player!.position - collectible.position).normalized();
+              collectible.position += direction * gameSpeed * 1.5 * dt;
+            }
+          }
+        }
+      }
+
+      if (magnetTimer <= 0) {
+        hasMagnet = false;
+      }
+    }
+
+    // Yavaş çekim süresi
     if (hasSlowMotion) {
       slowMotionTimer -= dt;
+
       if (slowMotionTimer <= 0) {
         hasSlowMotion = false;
-        difficultyMultiplier = 1.0; // Normal hıza dön
+        // Yavaşlama bittiğinde hızı geri yükselt
+        gameSpeed = gameSpeed / 0.6;
       }
     }
   }
@@ -406,10 +516,11 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   void _attractCollectibles() {
     for (var collectible in collectibles) {
       // Oyuncuya belirli mesafede olan paraları çek
-      final distance = player.position.distanceTo(collectible.position);
+      final distance = _player!.position.distanceTo(collectible.position);
       if (distance < 200 && collectible.type == CollectibleType.coin) {
         // Oyuncuya doğru hareket ettir
-        final direction = (player.position - collectible.position).normalized();
+        final direction =
+            (_player!.position - collectible.position).normalized();
         collectible.position += direction * 5;
       }
     }
@@ -425,7 +536,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
   void activateShield(double duration) {
     hasShield = true;
     shieldTimer = duration;
-    player.isInvincible = true;
+    _player!.isInvincible = true;
   }
 
   // Yavaş çekim etkisini aktifleştir
@@ -447,7 +558,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
     ];
 
     // Doğal dağ renkleri - yeşil-kahverengi tonları
-    if (theme == null || theme.secondaryColor == null) {
+    if (theme == null ||
+        theme.secondaryColor == null ||
+        theme.secondaryColor == Colors.red) {
       mountainColors[0] = Colors.blueGrey.shade700;
       mountainColors[1] = Colors.blueGrey.shade800;
       mountainColors[2] = Colors.blueGrey.shade600;
@@ -500,6 +613,52 @@ class RunnerGame extends FlameGame with HasCollisionDetection {
       _fps = 1.0 / dt;
     }
   }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+
+    // Seviye mesajı gösterimi
+    if (showLevelUpMessage) {
+      final textStyle = TextStyle(
+        color: Colors.amber,
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        shadows: [
+          Shadow(color: Colors.black, blurRadius: 4, offset: Offset(2, 2)),
+        ],
+      );
+
+      final textPainter = TextPainter(
+        text: TextSpan(text: levelUpMessage, style: textStyle),
+        textDirection: TextDirection.ltr,
+      );
+
+      textPainter.layout();
+
+      // Ekranın ortasına yerleştir
+      textPainter.paint(
+          canvas, Offset(size.x / 2 - textPainter.width / 2, size.y / 2 - 50));
+    }
+  }
+
+  // RunnerGame sınıfına slide ve dash metotlarını ekleyin
+  void slidePlayer() {
+    if (_player != null) {
+      _player!.slide();
+    }
+  }
+
+  void dashPlayer() {
+    if (_player != null) {
+      _player!.dash();
+    }
+  }
+
+  // Zıplama durumu kontrolü için accessor'lar
+  bool get isPlayerChargingJump => _player?.isChargingJump ?? false;
+  double get playerJumpChargeDuration => _player?.jumpChargeDuration ?? 0.0;
+  double get playerMaxChargeTime => _player?.maxChargeTime ?? 1.0;
 }
 
 class PlayerComponent extends PositionComponent with CollisionCallbacks {
@@ -1897,19 +2056,19 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             onPointerDown: (PointerDownEvent event) {
               if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
                 print("Listener: Zıplama başlatılıyor!");
-                _game.player.startJumpCharge();
+                _game.startPlayerJumpCharge();
               }
             },
             onPointerUp: (PointerUpEvent event) {
               if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
                 print("Listener: Zıplama gerçekleştiriliyor!");
-                _game.player.executeJump();
+                _game.executePlayerJump();
               }
             },
             onPointerCancel: (PointerCancelEvent event) {
               if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
                 print("Listener: Zıplama iptal ediliyor!");
-                _game.player.executeJump();
+                _game.executePlayerJump();
               }
             },
             child: GestureDetector(
@@ -1917,7 +2076,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               onVerticalDragStart: (details) {
                 if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
                   print("Kayma!");
-                  _game.player.slide();
+                  _game.slidePlayer();
                 }
               },
               // Dash hareketi için hızlı yatay kaydırma
@@ -1927,7 +2086,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     _game.hasLayout &&
                     details.velocity.pixelsPerSecond.dx.abs() > 300) {
                   print("Dash!");
-                  _game.player.dash();
+                  _game.dashPlayer();
                 }
               },
               child: GameWidget(game: _game),
@@ -2004,11 +2163,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                       ),
                                       height: containerHeight - 4,
                                       width: _game.hasLayout &&
-                                              _game.player.isChargingJump
+                                              _game.isPlayerChargingJump
                                           ? math.min(
-                                              (_game.player.jumpChargeDuration /
-                                                      _game.player
-                                                          .maxChargeTime) *
+                                              (_game.playerJumpChargeDuration /
+                                                      _game
+                                                          .playerMaxChargeTime) *
                                                   constraints.maxWidth,
                                               constraints.maxWidth - 4)
                                           : 0,

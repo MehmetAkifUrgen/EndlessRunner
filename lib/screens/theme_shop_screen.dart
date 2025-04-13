@@ -10,7 +10,7 @@ class ThemeShopScreen extends StatelessWidget {
     final gameState = Provider.of<GameState>(context);
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
-    
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -185,7 +185,11 @@ class ThemeShopScreen extends StatelessWidget {
                 child: GridView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isSmallScreen ? 1 : size.width > 900 ? 3 : 2,
+                    crossAxisCount: isSmallScreen
+                        ? 1
+                        : size.width > 900
+                            ? 3
+                            : 2,
                     childAspectRatio: 2.2,
                     crossAxisSpacing: 20,
                     mainAxisSpacing: 20,
@@ -263,7 +267,8 @@ class ThemeShopScreen extends StatelessWidget {
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.white24,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
                                         child: const Row(
                                           children: [
@@ -292,7 +297,8 @@ class ThemeShopScreen extends StatelessWidget {
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.white24,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
                                         child: const Text(
                                           'AÇIK',
@@ -318,8 +324,10 @@ class ThemeShopScreen extends StatelessWidget {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.amber.withOpacity(0.3),
-                                              borderRadius: BorderRadius.circular(12),
+                                              color:
+                                                  Colors.amber.withOpacity(0.3),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: Row(
                                               children: [
@@ -479,7 +487,8 @@ class ThemeShopScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 ),
                 child: const Text(
                   'İPTAL',
@@ -493,14 +502,15 @@ class ThemeShopScreen extends StatelessWidget {
                 onPressed: gameState.coins < theme.price
                     ? null
                     : () async {
-                        final success = await gameState.unlockTheme(theme.id);
+                        final success = await gameState.buyTheme(theme.id);
                         if (success) {
                           // ignore: use_build_context_synchronously
                           Navigator.pop(context);
                           // ignore: use_build_context_synchronously
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('${theme.name} teması satın alındı!'),
+                              content:
+                                  Text('${theme.name} teması satın alındı!'),
                               backgroundColor: Colors.green,
                               shape: const RoundedRectangleBorder(
                                 borderRadius: BorderRadius.only(
@@ -523,7 +533,8 @@ class ThemeShopScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 ),
                 child: const Text(
                   'SATIN AL',
@@ -540,4 +551,3 @@ class ThemeShopScreen extends StatelessWidget {
     );
   }
 }
-

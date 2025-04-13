@@ -13,6 +13,7 @@
 - **Otomatik İlerleyen Oyun Dünyası**: Engeller ve toplanabilir öğeler sürekli olarak oyuncuya doğru gelir
 - **Zorluk Seviyesi Artışı**: Oyun süresi ilerledikçe hız otomatik olarak artar
 - **Can Sistemi**: Oyuncular 3 cana sahiptir, engele çarpınca 1 can kaybedilir
+- **Seviye Sistemi**: Oyuncular XP toplayarak seviye atlar ve daha zorlu aşamalara ulaşır
 
 ### Gelişmiş Mekanikler
 - **Combo Sistemi**: Toplanabilirleri art arda toplamak combo sayacını artırır
@@ -44,6 +45,7 @@
 - **İnsan Benzeri Karakter Tasarımı**: Detaylı insan formu ve yüz ifadeleri
 - **Özel Şık Engeller**: Farklı tipteki engeller için gradient ve parıltı efektleri içeren gelişmiş tasarımlar
 - **Doğal Renk Şeması**: Dağlar ve arkaplan için gerçekçi renk tonları
+- **Seviye Atlama Animasyonu**: Seviye atlandığında oyun içi ekranda özel animasyonlu bildirim
 
 ### Tema Sistemi
 - **Özelleştirilebilir Temalar**: Farklı renk şemaları ve görsel stiller
@@ -51,6 +53,15 @@
 - **Aktif Tema Gösterimi**: Mevcut seçili temayı gösteren arayüz
 - **Tema Önizleme**: Satın almadan önce temaları önizleme imkanı
 - **Kilitli Temalar**: Oyun ilerleyişi ile açılan veya satın alınabilen temalar
+
+### Seviye Sistemi
+- **Tecrübe Puanı (XP)**: Oyun içi puanların bir kısmı XP olarak kaydedilir
+- **Seviye İlerleme Çubuğu**: Mevcut XP durumunu görsel olarak gösteren çubuk
+- **Seviye Ödülleri**: Her seviyede artan puan çarpanı ve özel içerikler
+- **Seviye Tabanlı Zorluk**: Üst seviyelerde daha hızlı ve zor oyun deneyimi
+- **Seviye Seçim Ekranı**: Açılan seviyeleri görüntüleme ve seçme imkanı
+- **Seviye Atlama Bildirimi**: Yeni seviyeye ulaşıldığında özel bildirim
+- **Seviye Bazlı Engeller**: Üst seviyelerde daha karmaşık engel tipleri
 
 ## Kullanıcı Arayüzü
 - **Puan Göstergesi**: Oyuncunun mevcut puanını gösterir
@@ -65,6 +76,7 @@
 - **Responsive Ana Menü**: Farklı ekran boyutlarına uyum sağlayan şık ana menü
 - **Animasyonlu Butonlar**: Etkileşim sırasında animasyon gösteren UI elemanları
 - **Gradient ve Gölge Efektleri**: Modern görünüm için görsel zenginlikler
+- **XP ve Seviye Göstergesi**: Ana menüde mevcut oyuncu seviyesi ve XP durumu
 
 ## Teknik Özellikler
 - **Flame Oyun Motoru**: 2D oyun geliştirme için Flutter'a entegre framework
@@ -75,6 +87,7 @@
 - **Responsive Tasarım**: Farklı ekran boyutlarına uyum sağlayan arayüz
 - **Dokunuş Hareketi Tanıma**: Kaydırma ve dokunma hareketleri için gelişmiş tanıma
 - **Obje Tipi Bazlı Çarpışma Kutuları**: Farklı engel tipleri için optimize edilmiş çarpışma kutuları
+- **İlerleme Kayıt Sistemi**: Oyuncu seviyesi ve XP bilgisini yerel depolamada saklama
 
 ## Performans Optimizasyonları
 - **Görsel Öğe Sınırlaması**: Ekrandaki grafik öğelerinin sayısı optimize edildi
@@ -90,6 +103,7 @@
 - **3B Efektleri Optimizasyonu**: Performans için hafifletilmiş 3B görünümlü 2D çizimler
 - **Shader ve Gradient Optimizasyonu**: Daha verimli shader kullanımı
 - **Çimen Detaylarının Azaltılması**: Minimum çimen öğesiyle maksimum görsel etki
+- **Seviye Bazlı Engel Optimizasyonu**: Farklı zorluk seviyelerinde optimum engel sayısı
 
 ## Gerçekleştirilmiş Geliştirmeler
 - **Tema Mağazası**: Oyun içi para ile satın alınabilir farklı temalar
@@ -101,11 +115,21 @@
 - **Chrome Basılı Tutma Düzeltmesi**: Web tarayıcılarında oyun kontrollerinin optimizasyonu
 - **Görsel Dil Değişimi**: Arayüzün İngilizce'den Türkçe'ye çevrilmesi
 - **Oyun Sonu İyileştirmeleri**: Ana menüye dönüş ve yeniden oynama seçenekleri
+- **Seviye Sistemi**: XP toplama ve seviyelerin kilidi açılması sistemi
+- **Seviye Seçim Ekranı**: Açılmış seviyeler arasında seçim yapabilme
+
+## Seviye Sistemi Detayları
+- **Seviye 1**: Acemi Koşucu - Standart oyun hızı, yalnızca temel engeller
+- **Seviye 2**: Amatör Atlet - %20 daha fazla puan, %20 daha hızlı oyun
+- **Seviye 3**: Hızlı Koşucu - %50 daha fazla puan, duvar engelleri ve rampalar
+- **Seviye 4**: Profesyonel Atlet - %80 daha fazla puan, %60 daha hızlı oyun
+- **Seviye 5**: Engel Ustası - %100 daha fazla puan, tüm engel tipleri aktif
+- **Seviye 6**: Efsane Koşucu - %150 daha fazla puan, maksimum zorluk
 
 ## Gelecek Geliştirmeler
 - **Şerit Değiştirme Sistemi**: Sağa/sola kaydırarak şerit değiştirebilme
 - **Karakter Özelleştirme**: Farklı karakterler ve görünümler
-- **Seviye Sistemi**: Artan zorluklarla farklı seviyeler
+- **Seviye Sistemi Genişletme**: Daha fazla seviye ve daha özel ödüller
 - **Özel Efektler ve Parçacık Sistemleri**: Daha zengin görsel deneyim
 - **Ses Efektleri ve Müzik**: Atmosferik oyun deneyimi
 - **Yüksek Skor Tablosu**: Çevrimiçi yüksek skor rekabeti
@@ -122,6 +146,7 @@
 - **Tarayıcı Uyumluluğu**: Chrome, Firefox ve Safari'de test edildi ve optimize edildi
 - **Görsel Performans**: Optimize edilen arka plan ve engel tasarımları ile daha iyi görsel deneyim
 - **Responsive Tasarım**: Farklı ekran boyutlarında sorunsuz ölçekleme
+- **Seviye Sistemi Testi**: XP kazanma ve seviye atlama mekanikleri düzgün çalışıyor
 
 ## Teknik Notlar
 - **Flutter Versiyonu**: 3.0.0+

@@ -29,6 +29,29 @@ class GameTheme {
   });
 }
 
+// Seviye bilgisini tutacak sınıf
+class Level {
+  final int id;
+  final String name;
+  final String description;
+  final int requiredXP;
+  final double speedMultiplier;
+  final double scoreMultiplier;
+  final int obstacleFrequency;
+  final bool isUnlocked;
+
+  Level({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.requiredXP,
+    required this.speedMultiplier,
+    required this.scoreMultiplier,
+    required this.obstacleFrequency,
+    this.isUnlocked = false,
+  });
+}
+
 class GameState with ChangeNotifier {
   bool _isPlaying = false;
   int _score = 0;
@@ -38,10 +61,16 @@ class GameState with ChangeNotifier {
   int _gamesSinceLastAd = 0;
   bool _showRewardAd = false;
   GravityDirection _gravityDirection = GravityDirection.down;
-  
+
   // Tema sistemi için eklemeler
   String _currentThemeId = 'default';
   List<GameTheme> _availableThemes = [];
+
+  // Seviye sistemi için eklemeler
+  int _playerLevel = 1;
+  int _currentXP = 0;
+  int _currentLevelId = 1;
+  List<Level> _availableLevels = [];
 
   // Getters
   bool get isPlaying => _isPlaying;
@@ -54,10 +83,40 @@ class GameState with ChangeNotifier {
   GravityDirection get gravityDirection => _gravityDirection;
   String get currentThemeId => _currentThemeId;
   List<GameTheme> get availableThemes => _availableThemes;
+  int get playerLevel => _playerLevel;
+  int get currentXP => _currentXP;
+  int get currentLevelId => _currentLevelId;
+  List<Level> get availableLevels => _availableLevels;
+
+  // Aktif seviyeyi döndür
+  Level get currentLevel => _availableLevels.firstWhere(
+        (level) => level.id == _currentLevelId,
+        orElse: () => _availableLevels.first,
+      );
+
+  // Sonraki seviye için gereken XP
+  int get xpForNextLevel {
+    if (_playerLevel >= _availableLevels.length) {
+      return _availableLevels.last.requiredXP;
+    }
+    return _availableLevels[_playerLevel].requiredXP;
+  }
+
+  // XP yüzdesi (seviye ilerleme çubuğu için)
+  double get xpPercentage => _currentXP / xpForNextLevel;
+
+  // Mevcut tema nesnesini döndür
+  GameTheme get currentTheme {
+    return _availableThemes.firstWhere(
+      (theme) => theme.id == _currentThemeId,
+      orElse: () => _availableThemes.first,
+    );
+  }
 
   GameState() {
     _initThemes();
-    _loadHighScore();
+    _initLevels();
+    _loadSavedData();
   }
 
   // Temaları başlat
@@ -122,14 +181,78 @@ class GameState with ChangeNotifier {
     ];
   }
 
-  // Yüksek skoru yükle
-  Future<void> _loadHighScore() async {
+  // Seviyeleri başlat
+  void _initLevels() {
+    _availableLevels = [
+      Level(
+        id: 1,
+        name: "Acemi Koşucu",
+        description: "Yarışa yeni başlayanlar için.",
+        requiredXP: 0,
+        speedMultiplier: 1.0,
+        scoreMultiplier: 1.0,
+        obstacleFrequency: 2,
+        isUnlocked: true,
+      ),
+      Level(
+        id: 2,
+        name: "Amatör Atlet",
+        description: "Engellere alışıyorsun, hızını artır!",
+        requiredXP: 500,
+        speedMultiplier: 1.2,
+        scoreMultiplier: 1.2,
+        obstacleFrequency: 2,
+      ),
+      Level(
+        id: 3,
+        name: "Hızlı Koşucu",
+        description: "Daha hızlı ve daha yüksek puanlar!",
+        requiredXP: 1500,
+        speedMultiplier: 1.4,
+        scoreMultiplier: 1.5,
+        obstacleFrequency: 1,
+      ),
+      Level(
+        id: 4,
+        name: "Profesyonel Atlet",
+        description: "Artık profesyonel bir koşucusun!",
+        requiredXP: 3000,
+        speedMultiplier: 1.6,
+        scoreMultiplier: 1.8,
+        obstacleFrequency: 1,
+      ),
+      Level(
+        id: 5,
+        name: "Engel Ustası",
+        description: "Süper koşucu! Daha yüksek zorluk ve ödüller.",
+        requiredXP: 5000,
+        speedMultiplier: 1.8,
+        scoreMultiplier: 2.0,
+        obstacleFrequency: 1,
+      ),
+      Level(
+        id: 6,
+        name: "Efsane Koşucu",
+        description: "Maksimum hız ve zorluk seviyesi!",
+        requiredXP: 10000,
+        speedMultiplier: 2.0,
+        scoreMultiplier: 2.5,
+        obstacleFrequency: 1,
+      ),
+    ];
+  }
+
+  // Yüksek skoru ve diğer verileri yükle
+  Future<void> _loadSavedData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       _highScore = prefs.getInt('highScore') ?? 0;
       _coins = prefs.getInt('coins') ?? 0;
       _currentThemeId = prefs.getString('currentTheme') ?? 'default';
-      
+      _playerLevel = prefs.getInt('playerLevel') ?? 1;
+      _currentXP = prefs.getInt('currentXP') ?? 0;
+      _currentLevelId = prefs.getInt('currentLevelId') ?? 1;
+
       // Açılmış temaları yükle
       for (int i = 0; i < _availableThemes.length; i++) {
         String themeId = _availableThemes[i].id;
@@ -148,22 +271,45 @@ class GameState with ChangeNotifier {
           );
         }
       }
-      print("Loaded high score: $_highScore and theme: $_currentThemeId");
+
+      // Açılmış seviyeleri yükle
+      for (int i = 0; i < _availableLevels.length; i++) {
+        int levelId = _availableLevels[i].id;
+        if (prefs.getBool('level_$levelId') == true) {
+          _availableLevels[i] = Level(
+            id: _availableLevels[i].id,
+            name: _availableLevels[i].name,
+            description: _availableLevels[i].description,
+            requiredXP: _availableLevels[i].requiredXP,
+            speedMultiplier: _availableLevels[i].speedMultiplier,
+            scoreMultiplier: _availableLevels[i].scoreMultiplier,
+            obstacleFrequency: _availableLevels[i].obstacleFrequency,
+            isUnlocked: true,
+          );
+        }
+      }
+
+      print(
+          "Loaded high score: $_highScore, theme: $_currentThemeId, level: $_playerLevel, XP: $_currentXP");
       notifyListeners();
     } catch (e) {
-      print("Error loading high score: $e");
+      print("Error loading saved data: $e");
     }
   }
 
-  // Yüksek skoru kaydet
-  Future<void> _saveHighScore() async {
+  // Verileri kaydet
+  Future<void> _saveData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('highScore', _highScore);
       await prefs.setInt('coins', _coins);
-      print("Saved high score: $_highScore");
+      await prefs.setString('currentTheme', _currentThemeId);
+      await prefs.setInt('playerLevel', _playerLevel);
+      await prefs.setInt('currentXP', _currentXP);
+      await prefs.setInt('currentLevelId', _currentLevelId);
+      print("Saved data - high score: $_highScore, level: $_playerLevel");
     } catch (e) {
-      print("Error saving high score: $e");
+      print("Error saving data: $e");
     }
   }
 
@@ -183,7 +329,7 @@ class GameState with ChangeNotifier {
 
     if (_score > _highScore) {
       _highScore = _score;
-      _saveHighScore();
+      _saveData();
       print("Game ended with new high score: $_highScore");
     }
 
@@ -192,19 +338,96 @@ class GameState with ChangeNotifier {
 
   // Skoru artır
   void addScore(int points) {
-    _score += points;
+    // Aktif seviyenin skorunu uygula
+    final adjustedPoints = (points * currentLevel.scoreMultiplier).floor();
+    _score += adjustedPoints;
+
+    // XP'yi de artır (skorun yarısı XP olarak eklenir)
+    addXP(adjustedPoints ~/ 2);
+
     if (_score > _highScore) {
       _highScore = _score;
-      _saveHighScore();
+      _saveData();
       print("Updated high score: $_highScore");
     }
     notifyListeners();
   }
 
+  // XP ekle ve seviye kontrol et
+  void addXP(int xp) {
+    _currentXP += xp;
+    _checkLevelUp();
+    notifyListeners();
+  }
+
+  // Seviye atlama kontrolü
+  void _checkLevelUp() {
+    if (_playerLevel >= _availableLevels.length) {
+      return; // Son seviyedeyse daha fazla ilerleyemez
+    }
+
+    final nextLevel = _availableLevels[_playerLevel];
+    if (_currentXP >= nextLevel.requiredXP) {
+      // Seviye atla
+      _playerLevel++;
+      // Seviyeyi açık olarak işaretle
+      final updatedLevel = Level(
+        id: nextLevel.id,
+        name: nextLevel.name,
+        description: nextLevel.description,
+        requiredXP: nextLevel.requiredXP,
+        speedMultiplier: nextLevel.speedMultiplier,
+        scoreMultiplier: nextLevel.scoreMultiplier,
+        obstacleFrequency: nextLevel.obstacleFrequency,
+        isUnlocked: true,
+      );
+
+      // Listeyi güncelle
+      int index =
+          _availableLevels.indexWhere((level) => level.id == nextLevel.id);
+      if (index != -1) {
+        _availableLevels[index] = updatedLevel;
+      }
+
+      // Kaydet
+      _saveUnlockedLevel(nextLevel.id);
+      print("Level up! New level: $_playerLevel");
+    }
+  }
+
+  // Açılan seviyeyi kaydet
+  Future<void> _saveUnlockedLevel(int levelId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('level_$levelId', true);
+      print("Saved unlocked level: $levelId");
+    } catch (e) {
+      print("Error saving unlocked level: $e");
+    }
+  }
+
+  // Kullanıcının seviyesini belirle
+  void setCurrentLevel(int levelId) {
+    // Açık seviyelerden mi kontrol et
+    final Level? level = _availableLevels.firstWhere(
+      (level) => level.id == levelId && level.isUnlocked,
+      orElse: () => _availableLevels.first,
+    );
+
+    if (level != null) {
+      _currentLevelId = levelId;
+      _saveData();
+      notifyListeners();
+      print("Set current level to: $levelId");
+    } else {
+      print("Cannot set level: Level $levelId is not unlocked");
+    }
+  }
+
   // Altın topla
   void collectCoin() {
     _coins++;
-    _saveHighScore();
+    _saveData();
     notifyListeners();
   }
 
@@ -233,66 +456,93 @@ class GameState with ChangeNotifier {
     notifyListeners();
   }
 
-  void resetAdCounter() {
-    _gamesSinceLastAd = 0;
-    notifyListeners();
-  }
-  
-  // Tema yönetimi metotları
-  Future<bool> unlockTheme(String themeId) async {
-    // Tema var mı ve kilitli mi kontrol et
-    int themeIndex = _availableThemes.indexWhere((t) => t.id == themeId);
-    if (themeIndex == -1 || _availableThemes[themeIndex].isUnlocked) {
-      return false;
-    }
-    
+  // Tema satın alma
+  bool buyTheme(String themeId) {
+    // İlgili temayı bul
+    final theme = _availableThemes.firstWhere(
+      (theme) => theme.id == themeId,
+      orElse: () => GameTheme(
+        id: '',
+        name: '',
+        price: 0,
+        primaryColor: Colors.white,
+        secondaryColor: Colors.white,
+        backgroundGradient: [Colors.white, Colors.white],
+        obstacleColor: Colors.white,
+        groundColor: Colors.white,
+        playerColor: Colors.white,
+      ),
+    );
+
+    // Tema bulunamadı veya zaten açık
+    if (theme.id.isEmpty || theme.isUnlocked) return false;
+
     // Yeterli para var mı kontrol et
-    int price = _availableThemes[themeIndex].price;
-    if (_coins < price) {
-      return false;
+    if (_coins >= theme.price) {
+      // Parayı düş
+      _coins -= theme.price;
+
+      // Tema listesini güncelle
+      int index = _availableThemes.indexWhere((t) => t.id == themeId);
+      if (index != -1) {
+        _availableThemes[index] = GameTheme(
+          id: theme.id,
+          name: theme.name,
+          price: theme.price,
+          isUnlocked: true,
+          primaryColor: theme.primaryColor,
+          secondaryColor: theme.secondaryColor,
+          backgroundGradient: theme.backgroundGradient,
+          obstacleColor: theme.obstacleColor,
+          groundColor: theme.groundColor,
+          playerColor: theme.playerColor,
+        );
+      }
+
+      // Tema açılışını kaydet
+      _saveUnlockedTheme(themeId);
+      notifyListeners();
+      return true;
     }
-    
-    // Parayı harca ve temayı aç
-    _coins -= price;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('theme_$themeId', true);
-    await prefs.setInt('coins', _coins);
-    
-    // Tema nesnesini güncelle
-    _availableThemes[themeIndex] = GameTheme(
-      id: _availableThemes[themeIndex].id,
-      name: _availableThemes[themeIndex].name,
-      price: _availableThemes[themeIndex].price,
-      isUnlocked: true,
-      primaryColor: _availableThemes[themeIndex].primaryColor,
-      secondaryColor: _availableThemes[themeIndex].secondaryColor,
-      backgroundGradient: _availableThemes[themeIndex].backgroundGradient,
-      obstacleColor: _availableThemes[themeIndex].obstacleColor,
-      groundColor: _availableThemes[themeIndex].groundColor,
-      playerColor: _availableThemes[themeIndex].playerColor,
-    );
-    
-    notifyListeners();
-    return true;
+
+    return false;
   }
-  
-  Future<void> setCurrentTheme(String themeId) async {
-    // Açık bir tema mı kontrol et
-    int themeIndex = _availableThemes.indexWhere((t) => t.id == themeId);
-    if (themeIndex == -1 || !_availableThemes[themeIndex].isUnlocked) {
-      return;
+
+  // Açılan temayı kaydet
+  Future<void> _saveUnlockedTheme(String themeId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('theme_$themeId', true);
+      await prefs.setInt('coins', _coins);
+      print("Saved unlocked theme: $themeId");
+    } catch (e) {
+      print("Error saving unlocked theme: $e");
     }
-    
-    _currentThemeId = themeId;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('currentTheme', themeId);
-    notifyListeners();
   }
-  
-  GameTheme get currentTheme {
-    return _availableThemes.firstWhere(
-      (theme) => theme.id == _currentThemeId,
-      orElse: () => _availableThemes.first,
+
+  // Mevcut temayı değiştir
+  void setCurrentTheme(String themeId) {
+    // Temanın açık olup olmadığını kontrol et
+    final themeExists = _availableThemes.any(
+      (theme) => theme.id == themeId && theme.isUnlocked,
     );
+
+    if (themeExists) {
+      _currentThemeId = themeId;
+      _saveCurrentTheme();
+      notifyListeners();
+      print("Changed current theme to: $themeId");
+    }
+  }
+
+  // Mevcut temayı kaydet
+  Future<void> _saveCurrentTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('currentTheme', _currentThemeId);
+      print("Saved current theme: $_currentThemeId");
+    } catch (e) {
+      print("Error saving current theme: $e");
+    }
   }
 }
