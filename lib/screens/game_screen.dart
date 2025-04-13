@@ -12,6 +12,7 @@ import '../models/game_state.dart';
 import '../models/obstacle.dart';
 import '../models/collectible.dart';
 import 'dart:math';
+import '../services/audio_service.dart';
 
 class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   // Oyun değişkenleri
@@ -73,6 +74,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
   // onGameReady callback
   Function(RunnerGame game)? onGameReady;
+
+  // Ses servisi
+  final AudioService _audioService = AudioService();
 
   @override
   Future<void> onLoad() async {
@@ -165,6 +169,12 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
     // Toplanabilir oluşturma zamanlayıcısı
     collectibleSpawnTimer = Timer(3, onTick: _spawnCollectible, repeat: true);
+
+    // Ses servisini başlat
+    await _audioService.initialize();
+
+    // Oyun müziğini başlat
+    _audioService.playMusic(MusicTrack.game);
 
     // onGameReady callback'i çağır
     onGameReady?.call(this);
@@ -394,6 +404,13 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
     isGameOver = true;
     print("GAME OVER! Total score: $score");
 
+    // Oyun sonu sesi
+    _audioService.playSfx(SoundEffect.gameOver);
+
+    // Oyun müziğini durdur ve oyun sonu müziğini başlat
+    _audioService.stopMusic();
+    _audioService.playMusic(MusicTrack.gameOver);
+
     // High score kontrolü ve güncelleme
     if (score > highScore) {
       highScore = score;
@@ -415,11 +432,17 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   // Doğrudan zıplama başlatmak için metod
   void startPlayerJumpCharge() {
     _player!.startJumpCharge();
+    // Zıplama şarj sesi
+    _audioService.playSfx(SoundEffect.jump);
   }
 
   // Doğrudan zıplama bitirmek için metod
   void executePlayerJump() {
     _player!.executeJump();
+    // Yere inerken ses çal
+    if (_player != null && _player!.velocityY < 0) {
+      _audioService.playSfx(SoundEffect.doubleJump);
+    }
   }
 
   // Bulutlar ekle (dekorasyon)
@@ -646,12 +669,16 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   void slidePlayer() {
     if (_player != null) {
       _player!.slide();
+      // Kayma sesi
+      _audioService.playSfx(SoundEffect.slide);
     }
   }
 
   void dashPlayer() {
     if (_player != null) {
       _player!.dash();
+      // Dash sesi
+      _audioService.playSfx(SoundEffect.dash);
     }
   }
 
@@ -659,6 +686,50 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   bool get isPlayerChargingJump => _player?.isChargingJump ?? false;
   double get playerJumpChargeDuration => _player?.jumpChargeDuration ?? 0.0;
   double get playerMaxChargeTime => _player?.maxChargeTime ?? 1.0;
+
+  // Toplanabilir toplandığında
+  void _handleCollectible(CollectibleType type) {
+    // Toplama sesi
+    _audioService.playSfx(SoundEffect.collect);
+
+    // Güç yükseltme sesi
+    if (type != CollectibleType.coin) {
+      _audioService.playSfx(SoundEffect.powerUp);
+    }
+  }
+
+  // Engele çarpma sesi
+  void _handleObstacleCollision() {
+    _audioService.playSfx(SoundEffect.hit);
+  }
+
+  // Seviye atlandığında
+  void _handleLevelUp() {
+    _audioService.playSfx(SoundEffect.levelUp);
+  }
+
+  // Oyun duraklatıldığında
+  void pauseGame() {
+    if (isGameOver) return;
+
+    isPaused = true;
+    _audioService.pauseMusic();
+  }
+
+  // Oyun devam ettirildiğinde
+  void resumeGame() {
+    if (isGameOver) return;
+
+    isPaused = false;
+    _audioService.resumeMusic();
+  }
+
+  @override
+  void onRemove() {
+    // Ses servisini kapat
+    _audioService.dispose();
+    super.onRemove();
+  }
 }
 
 class PlayerComponent extends PositionComponent with CollisionCallbacks {
@@ -2614,5 +2685,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (combo >= 10) return Colors.amber;
     if (combo >= 5) return Colors.green;
     return Colors.white;
+  }
+
+  // Oyunu duraklat/devam ettir
+  void _togglePause() {
+    setState(() {
+      _isPaused = !_isPaused;
+      if (_isPaused) {
+        _game.pauseGame();
+      } else {
+        _game.resumeGame();
+      }
+    });
   }
 }

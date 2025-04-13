@@ -4,9 +4,41 @@ import '../models/game_state.dart';
 import '../services/ad_service.dart';
 import 'game_screen.dart';
 import 'theme_shop_screen.dart';
+import '../services/audio_service.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // Ses servisi
+  final AudioService _audioService = AudioService();
+
+  @override
+  void initState() {
+    super.initState();
+    _initAudio();
+  }
+
+  // Ses başlatma
+  Future<void> _initAudio() async {
+    await _audioService.initialize();
+    _audioService.playMusic(MusicTrack.menu);
+  }
+
+  @override
+  void dispose() {
+    _audioService.dispose();
+    super.dispose();
+  }
+
+  // Buton tıklama sesi
+  void _playButtonSound() {
+    _audioService.playSfx(SoundEffect.collect);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +191,7 @@ class HomeScreen extends StatelessWidget {
                             width: constraints.maxWidth * 0.7,
                             height: 60,
                             color: gameState.currentTheme.primaryColor,
+                            onSoundCallback: _playButtonSound,
                           ),
                           const SizedBox(height: 20),
 
@@ -171,6 +204,7 @@ class HomeScreen extends StatelessWidget {
                             width: constraints.maxWidth * 0.7,
                             height: 60,
                             color: Colors.orangeAccent,
+                            onSoundCallback: _playButtonSound,
                           ),
                           const SizedBox(height: 20),
 
@@ -183,6 +217,7 @@ class HomeScreen extends StatelessWidget {
                             width: constraints.maxWidth * 0.7,
                             height: 60,
                             color: Colors.purpleAccent,
+                            onSoundCallback: _playButtonSound,
                           ),
                           const SizedBox(height: 20),
 
@@ -195,6 +230,7 @@ class HomeScreen extends StatelessWidget {
                             width: constraints.maxWidth * 0.7,
                             height: 60,
                             color: Colors.blueGrey,
+                            onSoundCallback: _playButtonSound,
                           ),
                         ],
                       ),
@@ -404,6 +440,7 @@ class HomeScreen extends StatelessWidget {
                   width: 120,
                   height: 50,
                   color: Colors.redAccent,
+                  onSoundCallback: _playButtonSound,
                 ),
               ],
             ),
@@ -421,6 +458,7 @@ class MenuButton extends StatelessWidget {
   final double width;
   final double height;
   final Color color;
+  final VoidCallback? onSoundCallback;
 
   const MenuButton({
     Key? key,
@@ -429,12 +467,19 @@ class MenuButton extends StatelessWidget {
     required this.width,
     required this.height,
     required this.color,
+    this.onSoundCallback,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onPressed,
+      onTap: () {
+        // Ses efekti
+        if (onSoundCallback != null) {
+          onSoundCallback!();
+        }
+        onPressed();
+      },
       child: Container(
         width: width,
         height: height,

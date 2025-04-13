@@ -13,7 +13,7 @@ dependencies:
   flutter_cube: ^0.1.1
   shared_preferences: ^2.2.1
   provider: ^6.0.5
-  audioplayers: ^5.2.0
+  audioplayers: ^6.4.0
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +28,6 @@ flutter:
     - assets/sphere/
     - assets/models/
     - assets/textures/
+    - assets/audio/
+    - assets/fonts/
+    - assets/images/
