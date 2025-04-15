@@ -634,60 +634,58 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   void _addMountains([GameTheme? theme]) {
     final rng = math.Random();
 
-    // Arka plandaki dağlar - doğal renkler
-    final mountainColors = [
-      theme?.secondaryColor.withOpacity(0.8) ?? Colors.blueGrey.shade700,
-      theme?.secondaryColor.withOpacity(0.9) ?? Colors.blueGrey.shade800,
-      theme?.secondaryColor.withOpacity(0.7) ?? Colors.blueGrey.shade600,
+    // Gerçekçi dağ renkleri - kırmızı dağ sorununun düzeltmesi
+    List<Color> mountainColors = [
+      Color(0xFF5D6E7C), // Gri mavi
+      Color(0xFF475A6B), // Koyu mavi gri
+      Color(0xFF344955), // Koyu mavi
+      Color(0xFF263742), // Çok koyu mavi
     ];
 
-    // Doğal dağ renkleri - yeşil-kahverengi tonları
-    if (theme == null ||
-        theme.secondaryColor == null ||
-        theme.secondaryColor == Colors.red) {
-      mountainColors[0] = Colors.blueGrey.shade700;
-      mountainColors[1] = Colors.blueGrey.shade800;
-      mountainColors[2] = Colors.blueGrey.shade600;
-    }
+    // Arka plan dağları (uzakta olanlar)
+    for (int i = 0; i < 4; i++) {
+      final mountainWidth = 300 + rng.nextDouble() * 400;
+      final mountainHeight = 100 + rng.nextDouble() * 120;
 
-    // Dağ sayısını azalt - performans için
-    for (int i = 0; i < 2; i++) {
-      final mountainWidth = 200 + rng.nextDouble() * 250;
-      final mountainHeight = 80 + rng.nextDouble() * 120;
-      final colorIndex = rng.nextInt(mountainColors.length);
+      // Dağları ekranın farklı yerlerine yerleştir
+      final xPos = i * (size.x / 4) - mountainWidth * 0.3;
+
+      // Arka plan dağları daha uzakta görünsün
+      final mountainPos = Vector2(
+        xPos,
+        size.y - groundHeight - mountainHeight * 0.7,
+      );
+
+      // Uzaklık hissi yaratmak için opaklık ayarla
+      final opacity = 0.6 + (i * 0.1);
+      final colorIndex = i % mountainColors.length;
 
       final mountain = MountainComponent(
-        position: Vector2(
-          rng.nextDouble() * size.x -
-              mountainWidth * 0.3, // Ekran dışına da taşabilir
-          size.y -
-              groundHeight -
-              mountainHeight +
-              15, // Biraz çimene gömülü görünsün
-        ),
+        position: mountainPos,
         size: Vector2(mountainWidth, mountainHeight),
-        color: mountainColors[colorIndex],
+        color: mountainColors[colorIndex].withOpacity(opacity),
       );
       add(mountain);
     }
 
-    // Ön plandaki dağlar - daha koyusu
-    // Sadece 1 dağ ekle - performans için
-    final mountainWidth = 250 + rng.nextDouble() * 200;
-    final mountainHeight = 100 + rng.nextDouble() * 150;
-    final mountain = MountainComponent(
-      position: Vector2(
-        rng.nextDouble() * size.x -
-            mountainWidth * 0.2, // Ekran dışına da taşabilir
-        size.y -
-            groundHeight -
-            mountainHeight +
-            20, // Biraz çimene gömülü görünsün
-      ),
-      size: Vector2(mountainWidth, mountainHeight),
-      color: theme?.secondaryColor ?? Colors.blueGrey.shade900,
-    );
-    add(mountain);
+    // Orta plan dağları (daha yakın)
+    for (int i = 0; i < 3; i++) {
+      final mountainWidth = 400 + rng.nextDouble() * 300;
+      final mountainHeight = 150 + rng.nextDouble() * 130;
+
+      // Konumlar
+      final xPos = i * (size.x / 3) - mountainWidth * 0.2;
+
+      final mountain = MountainComponent(
+        position: Vector2(
+          xPos,
+          size.y - groundHeight - mountainHeight + 20,
+        ),
+        size: Vector2(mountainWidth, mountainHeight),
+        color: mountainColors[i % mountainColors.length],
+      );
+      add(mountain);
+    }
   }
 
   // FPS hesaplama ve güncelleme
@@ -2224,30 +2222,30 @@ class MountainComponent extends PositionComponent {
 
     final random = math.Random(position.x.toInt() * position.y.toInt());
 
-    // Dağ silüeti için tepe noktaları oluştur
-    final peakCount = 4 + random.nextInt(3); // 4-6 tepe
+    // Dağ silüeti için tepe noktaları oluştur - daha fazla detay için nokta sayısı artırıldı
+    final peakCount = 7 + random.nextInt(4); // 7-10 tepe noktası
     final points = <Offset>[];
 
     // Başlangıç noktası (zemin)
     points.add(Offset(0, size.y));
 
-    // Dağ tepeleri - daha doğal eğrilik için
+    // Dağ tepeleri - daha doğal görünüm için
     double prevHeight = size.y;
     double prevX = 0;
 
     for (int i = 0; i < peakCount; i++) {
       final peakX = size.x * (i + 0.5) / (peakCount);
 
-      // Önceki tepe ile arasında çok fark olmasın, daha doğal görünsün
-      final maxChange = size.y * 0.3;
-      final minHeight = math.max(prevHeight - maxChange, size.y * 0.3);
-      final maxHeight = math.min(prevHeight + maxChange, size.y * 0.9);
+      // Daha doğal dağ silüeti için değişimlerin sınırlı olduğundan emin ol
+      final maxChange = size.y * 0.25; // Daha yumuşak eğim
+      final minHeight = math.max(prevHeight - maxChange, size.y * 0.4);
+      final maxHeight = math.min(prevHeight + maxChange, size.y * 0.85);
 
+      // Gerçekçi dağ şekilleri için rastgele yükseklik
       final peakHeight =
           random.nextDouble() * (maxHeight - minHeight) + minHeight;
       points.add(Offset(peakX, size.y - peakHeight));
 
-      // Ara kontrol noktaları için bilgileri sakla
       prevHeight = peakHeight;
       prevX = peakX;
     }
@@ -2255,22 +2253,24 @@ class MountainComponent extends PositionComponent {
     // Son nokta (zemin)
     points.add(Offset(size.x, size.y));
 
-    // Dağ şeklini daha doğal çiz - Bezier eğrileriyle
+    // Dağ silüetini çiz - daha pürüzsüz eğriler
     _mountainPath.moveTo(points.first.dx, points.first.dy);
 
     // İlk tepeye düz çizgi
     _mountainPath.lineTo(points[1].dx, points[1].dy);
 
-    // Tepeler arası doğal eğriler
+    // Tepeler arası doğal eğriler - daha pürüzsüz geçişler
     for (int i = 1; i < points.length - 2; i++) {
       final p1 = points[i];
       final p2 = points[i + 1];
 
       // Kontrol noktası - iki tepe arasında
       final controlX = (p1.dx + p2.dx) / 2;
+
+      // Eğimli yüzeyleri daha doğal göstermek için kontrol noktasının Y değerini ayarla
       final controlY = p1.dy < p2.dy
-          ? p1.dy + (p2.dy - p1.dy) * 0.3 // Alçalan eğri
-          : p2.dy + (p1.dy - p2.dy) * 0.3; // Yükselen eğri
+          ? p1.dy + (p2.dy - p1.dy) * 0.5 // Alçalan eğri - daha gerçekçi
+          : p2.dy + (p1.dy - p2.dy) * 0.5; // Yükselen eğri - daha gerçekçi
 
       _mountainPath.quadraticBezierTo(controlX, controlY, p2.dx, p2.dy);
     }
@@ -2279,13 +2279,38 @@ class MountainComponent extends PositionComponent {
     _mountainPath.lineTo(points.last.dx, points.last.dy);
     _mountainPath.close();
 
-    // Kar - en yüksek iki tepeye ekle
+    // Dağ detayları - daha çok sayıda ve çeşitli
+    for (int i = 0; i < 6; i++) {
+      // Detay sayısı artırıldı
+      final startX = random.nextDouble() * size.x * 0.8 + size.x * 0.1;
+      final startY = size.y * 0.3 + random.nextDouble() * size.y * 0.4;
+
+      if (!_isPointInPath(_mountainPath, Offset(startX, startY))) continue;
+
+      final detailPath = Path();
+      detailPath.moveTo(startX, startY);
+
+      // Daha doğal dağ detayları - vadiler ve sırtlar
+      double currentX = startX;
+      double currentY = startY;
+
+      final segmentCount = 3 + random.nextInt(4); // Daha fazla segment
+      for (int j = 0; j < segmentCount; j++) {
+        currentX += random.nextDouble() * size.x * 0.08 - size.x * 0.04;
+        currentY += random.nextDouble() * size.y * 0.12;
+        detailPath.lineTo(currentX, currentY);
+      }
+
+      _detailPaths.add(detailPath);
+    }
+
+    // Kar - daha gerçekçi kar örtüsü
     List<int> highestPeakIndices = [];
     for (int i = 1; i < points.length - 1; i++) {
-      if (highestPeakIndices.length < 2) {
+      if (highestPeakIndices.length < 3) {
+        // Daha fazla karlı tepe
         highestPeakIndices.add(i);
       } else {
-        // En düşük kar tepesini bul ve karşılaştır
         int lowestIdx = highestPeakIndices
             .reduce((a, b) => points[a].dy > points[b].dy ? a : b);
 
@@ -2296,75 +2321,44 @@ class MountainComponent extends PositionComponent {
       }
     }
 
-    // Karlı tepeleri çiz
+    // Karlı tepeleri çiz - daha gerçekçi kar örtüsü
     for (final idx in highestPeakIndices) {
       final peakPoint = points[idx];
       final snowPath = Path();
       final snowHeight = size.y *
-          0.1 *
+          0.15 *
           (1 - peakPoint.dy / size.y) *
-          2; // Tepe yüksekliğine göre kar
-      final snowWidth = size.x * 0.07 + random.nextDouble() * size.x * 0.07;
+          2; // Daha yüksek kar yüksekliği
+      final snowWidth = size.x * 0.1 + random.nextDouble() * size.x * 0.1;
 
       // Daha doğal kar tepesi
       snowPath.moveTo(peakPoint.dx, peakPoint.dy);
 
-      // Sol taraf
+      // Sol taraf - daha pürüzsüz eğri
       final leftX = peakPoint.dx - snowWidth;
       final leftY = peakPoint.dy + snowHeight;
-      snowPath.quadraticBezierTo(peakPoint.dx - snowWidth * 0.5,
-          peakPoint.dy + snowHeight * 0.3, leftX, leftY);
+      snowPath.quadraticBezierTo(peakPoint.dx - snowWidth * 0.3,
+          peakPoint.dy + snowHeight * 0.2, leftX, leftY);
 
-      // Sağ taraf
+      // Sağ taraf - daha pürüzsüz eğri
       final rightX = peakPoint.dx + snowWidth;
       final rightY = peakPoint.dy + snowHeight;
-      snowPath.quadraticBezierTo(peakPoint.dx + snowWidth * 0.5,
-          peakPoint.dy + snowHeight * 0.3, rightX, rightY);
+      snowPath.quadraticBezierTo(peakPoint.dx + snowWidth * 0.3,
+          peakPoint.dy + snowHeight * 0.2, rightX, rightY);
 
       snowPath.close();
-
-      // Ana kar path'ine ekle
       _snowPath.addPath(snowPath, Offset.zero);
     }
 
-    // Dağ detayları - çatlaklar ve gölgeler
-    for (int i = 0; i < 3; i++) {
-      // Farklı yerlerde başla
-      final startX = random.nextDouble() * size.x * 0.8 + size.x * 0.1;
-      final startY = size.y * 0.2 + random.nextDouble() * size.y * 0.4;
-
-      // Dağ içinde kalacak şekilde sınırla
-      if (!_isPointInPath(_mountainPath, Offset(startX, startY))) continue;
-
-      final detailPath = Path();
-      detailPath.moveTo(startX, startY);
-
-      // Daha doğal çatlak - zigzag şekil
-      double currentX = startX;
-      double currentY = startY;
-
-      final segmentCount = 2 + random.nextInt(3);
-      for (int j = 0; j < segmentCount; j++) {
-        // Bir sonraki nokta
-        currentX += random.nextDouble() * size.x * 0.1 - size.x * 0.05;
-        currentY += random.nextDouble() * size.y * 0.15;
-
-        detailPath.lineTo(currentX, currentY);
-      }
-
-      _detailPaths.add(detailPath);
-    }
-
-    // Dağ sırtları (ridge) - ışık ve gölge için
+    // Dağ sırtları - gerçekçi görünüm için
     for (int i = 1; i < points.length - 2; i++) {
       final p1 = points[i];
       final p2 = points[i + 1];
 
-      // Kontrol noktası - iki tepe arasında
       final controlX = (p1.dx + p2.dx) / 2;
       final controlY = p1.dy < p2.dy
-          ? p1.dy + (p2.dy - p1.dy) * 0.3
-          : p2.dy + (p1.dy - p2.dy) * 0.3;
+          ? p1.dy + (p2.dy - p1.dy) * 0.5
+          : p2.dy + (p1.dy - p2.dy) * 0.5;
 
       final ridgePath = Path();
       ridgePath.moveTo(p1.dx, p1.dy);
@@ -2380,8 +2374,6 @@ class MountainComponent extends PositionComponent {
   bool _isPointInPath(Path path, Offset point) {
     final bounds = path.getBounds();
     if (!bounds.contains(point)) return false;
-
-    // Basit sınırlama kontrolü - daha gelişmiş kontrol gerekebilir
     return true;
   }
 
@@ -2390,7 +2382,7 @@ class MountainComponent extends PositionComponent {
     // Lazy olarak dağı hazırla
     _prerenderMountain();
 
-    // Ana dağ şeklini çiz - gradient ile zenginleştir
+    // Ana dağ şeklini çiz - daha gelişmiş gradient ile
     final mountainGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -2399,32 +2391,37 @@ class MountainComponent extends PositionComponent {
         _mountainPaint.color,
         _shadowPaint.color,
       ],
-      stops: [0.2, 0.5, 0.9],
+      stops: [0.2, 0.6, 0.9], // Daha pürüzsüz geçişler
     ).createShader(_mountainPath.getBounds());
 
     canvas.drawPath(_mountainPath, Paint()..shader = mountainGradient);
 
-    // Dağ sırtlarını çiz - ışık ve gölge efekti
+    // Dağ sırtlarını çiz - daha belirgin ışık ve gölge efekti
     for (int i = 0; i < _ridgePaths.length; i++) {
-      // Dağ yönüne göre ışık veya gölge efekti
       final isLightRidge = i % 2 == 0;
-      canvas.drawPath(
-          _ridgePaths[i], isLightRidge ? _lightPaint : _shadowPaint);
+      final ridgePaint = Paint()
+        ..color = isLightRidge
+            ? _lightPaint.color.withOpacity(0.6)
+            : _shadowPaint.color.withOpacity(0.7);
+
+      canvas.drawPath(_ridgePaths[i], ridgePaint);
     }
 
-    // Detayları çiz - çatlaklar vb.
+    // Detayları çiz - daha belirgin çatlaklar
     for (final path in _detailPaths) {
       canvas.drawPath(path, _detailPaint);
     }
 
-    // Kar tepelerini çiz - parlak efekt
+    // Kar tepelerini çiz - daha gerçekçi kar efekti
     final snowGradient = RadialGradient(
       center: Alignment.topCenter,
-      radius: 0.8,
+      radius: 1.0,
       colors: [
         Colors.white,
-        _snowPaint.color,
+        Colors.white.withOpacity(0.8),
+        _snowPaint.color.withOpacity(0.6),
       ],
+      stops: [0.0, 0.5, 1.0],
     ).createShader(_snowPath.getBounds());
 
     canvas.drawPath(_snowPath, Paint()..shader = snowGradient);

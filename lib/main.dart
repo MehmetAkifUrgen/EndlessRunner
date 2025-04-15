@@ -6,7 +6,7 @@ import 'services/ad_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  debugShowCheckedModeBanner: false;
   // Sahte reklam servisi
   final adService = AdService();
   await adService.initialize();
@@ -18,6 +18,7 @@ void main() async {
         Provider<AdService>.value(value: adService),
       ],
       child: const MyApp(),
+    
     ),
   );
 }
