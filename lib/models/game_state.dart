@@ -74,7 +74,7 @@ class GameState with ChangeNotifier {
   List<Level> _availableLevels = [];
 
   // Karakter sistemi için eklemeler
-  String _currentCharacterId = 'runner';
+  String _currentCharacterId = 'rabbit';
   List<PlayerCharacter> _availableCharacters = [];
 
   // Getters
@@ -271,46 +271,56 @@ class GameState with ChangeNotifier {
       _playerLevel = prefs.getInt('playerLevel') ?? 1;
       _currentXP = prefs.getInt('currentXP') ?? 0;
       _currentLevelId = prefs.getInt('currentLevelId') ?? 1;
-      _currentCharacterId = prefs.getString('currentCharacter') ?? 'runner';
+      _currentCharacterId = prefs.getString('currentCharacter') ?? 'rabbit';
 
       // Açık temaları yükle
-      for (int i = 0; i < _availableThemes.length; i++) {
-        String themeId = _availableThemes[i].id;
-        if (prefs.getBool('theme_$themeId') == true) {
-          _availableThemes[i] = GameTheme(
-            id: _availableThemes[i].id,
-            name: _availableThemes[i].name,
-            price: _availableThemes[i].price,
-            isUnlocked: true,
-            primaryColor: _availableThemes[i].primaryColor,
-            secondaryColor: _availableThemes[i].secondaryColor,
-            backgroundGradient: _availableThemes[i].backgroundGradient,
-            obstacleColor: _availableThemes[i].obstacleColor,
-            groundColor: _availableThemes[i].groundColor,
-            playerColor: _availableThemes[i].playerColor,
-          );
-        }
-      }
+      _availableThemes = _availableThemes.map((theme) {
+        final isUnlocked =
+            prefs.getBool('theme_${theme.id}') ?? theme.id == 'default';
+        return GameTheme(
+          id: theme.id,
+          name: theme.name,
+          price: theme.price,
+          isUnlocked: isUnlocked,
+          primaryColor: theme.primaryColor,
+          secondaryColor: theme.secondaryColor,
+          backgroundGradient: theme.backgroundGradient,
+          obstacleColor: theme.obstacleColor,
+          groundColor: theme.groundColor,
+          playerColor: theme.playerColor,
+        );
+      }).toList();
 
       // Açılmış seviyeleri yükle
-      for (int i = 0; i < _availableLevels.length; i++) {
-        int levelId = _availableLevels[i].id;
-        if (prefs.getBool('level_$levelId') == true) {
-          _availableLevels[i] = Level(
-            id: _availableLevels[i].id,
-            name: _availableLevels[i].name,
-            description: _availableLevels[i].description,
-            requiredXP: _availableLevels[i].requiredXP,
-            speedMultiplier: _availableLevels[i].speedMultiplier,
-            scoreMultiplier: _availableLevels[i].scoreMultiplier,
-            obstacleFrequency: _availableLevels[i].obstacleFrequency,
-            isUnlocked: true,
-          );
-        }
-      }
+      _availableLevels = _availableLevels.map((level) {
+        final isUnlocked = prefs.getBool('level_${level.id}') ?? level.id == 1;
+        return Level(
+          id: level.id,
+          name: level.name,
+          description: level.description,
+          requiredXP: level.requiredXP,
+          speedMultiplier: level.speedMultiplier,
+          scoreMultiplier: level.scoreMultiplier,
+          obstacleFrequency: level.obstacleFrequency,
+          isUnlocked: isUnlocked,
+        );
+      }).toList();
 
       // Açılmış karakterleri yükle
       _availableCharacters = await CharacterManager.loadCharacters();
+
+      // Yüklenen karakter ID'sinin hala geçerli olup olmadığını KESİN kontrol et
+      bool loadedIdIsValid =
+          _availableCharacters.any((char) => char.id == _currentCharacterId);
+
+      // Eğer yüklenen ID geçerli değilse VEYA hala 'runner' ise
+      if (!loadedIdIsValid || _currentCharacterId == 'runner') {
+        print(
+            "Geçersiz veya eski karakter ID'si yüklendi: $_currentCharacterId. Rabbit'e dönülüyor.");
+        _currentCharacterId = 'rabbit'; // Yeni varsayılanı ayarla
+        await prefs.setString(
+            'currentCharacter', _currentCharacterId); // Yeni varsayılanı kaydet
+      }
 
       print(
           "Loaded high score: $_highScore, theme: $_currentThemeId, level: $_playerLevel, XP: $_currentXP, character: $_currentCharacterId");
@@ -436,16 +446,17 @@ class GameState with ChangeNotifier {
     // Açık seviyelerden mi kontrol et
     final Level? level = _availableLevels.firstWhere(
       (level) => level.id == levelId && level.isUnlocked,
-      orElse: () => _availableLevels.first,
+      orElse: () => _availableLevels.firstWhere((l) => l.isUnlocked,
+          orElse: () => _availableLevels.first),
     );
 
     if (level != null) {
-      _currentLevelId = levelId;
+      _currentLevelId = level.id;
       _saveData();
       notifyListeners();
       print("Set current level to: $levelId");
     } else {
-      print("Cannot set level: Level $levelId is not unlocked");
+      print("Cannot set level: Level $levelId is not unlocked or not found");
     }
   }
 

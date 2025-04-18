@@ -51,73 +51,86 @@ class CharacterManager {
   static final List<PlayerCharacter> _characters = [
     // Varsayılan karakter (ücretsiz)
     PlayerCharacter(
-      id: 'runner',
-      name: 'Runner',
+      id: 'rabbit',
+      name: 'Tavşan',
       price: 0,
       isUnlocked: true,
-      primaryColor: Colors.red,
-      secondaryColor: Colors.redAccent,
+      primaryColor: Colors.white,
+      secondaryColor: Colors.grey.shade300,
+      assetPath: 'assets/characters/rabbit.png',
       attributes: {
         'jumpPower': 1.0,
         'speed': 1.0,
         'dashPower': 1.0,
+        'coinMultiplier': 1.0,
       },
     ),
 
-    // Hızlı koşucu
+    // Hızlı karakter
     PlayerCharacter(
-      id: 'speedy',
-      name: 'Speedy',
+      id: 'cheetah',
+      name: 'Çita',
       price: 1000,
-      primaryColor: Colors.blue,
-      secondaryColor: Colors.lightBlue,
-      attributes: {
-        'jumpPower': 0.8,
-        'speed': 1.2,
-        'dashPower': 1.1,
-      },
-    ),
-
-    // Zıplayan karakter
-    PlayerCharacter(
-      id: 'jumper',
-      name: 'Jumper',
-      price: 1500,
-      primaryColor: Colors.green,
-      secondaryColor: Colors.lightGreen,
-      attributes: {
-        'jumpPower': 1.3,
-        'speed': 0.9,
-        'dashPower': 0.9,
-      },
-    ),
-
-    // Dash uzmanı
-    PlayerCharacter(
-      id: 'dasher',
-      name: 'Dasher',
-      price: 2000,
-      primaryColor: Colors.purple,
-      secondaryColor: Colors.purpleAccent,
+      isUnlocked: false,
+      primaryColor: Colors.amber,
+      secondaryColor: Colors.brown,
+      assetPath: 'assets/characters/cheetah.png',
       attributes: {
         'jumpPower': 0.9,
+        'speed': 1.3,
+        'dashPower': 1.1,
+        'coinMultiplier': 1.0,
+      },
+    ),
+
+    // Yüksek zıplayıcı karakter
+    PlayerCharacter(
+      id: 'frog',
+      name: 'Kurbağa',
+      price: 1500,
+      isUnlocked: false,
+      primaryColor: Colors.green,
+      secondaryColor: Colors.lightGreen,
+      assetPath: 'assets/characters/frog.png',
+      attributes: {
+        'jumpPower': 1.5,
+        'speed': 0.9,
+        'dashPower': 0.9,
+        'coinMultiplier': 1.0,
+      },
+    ),
+
+    // Dash yeteneği yüksek karakter
+    PlayerCharacter(
+      id: 'fox',
+      name: 'Tilki',
+      price: 2000,
+      isUnlocked: false,
+      primaryColor: Colors.deepOrange,
+      secondaryColor: Colors.orange,
+      assetPath: 'assets/characters/fox.png',
+      attributes: {
+        'jumpPower': 1.0,
         'speed': 1.0,
-        'dashPower': 1.4,
+        'dashPower': 1.5,
+        'coinMultiplier': 1.1,
       },
     ),
 
     // VIP karakter
     PlayerCharacter(
-      id: 'golden',
-      name: 'Golden Runner',
+      id: 'eagle',
+      name: 'Kartal',
       price: 5000,
-      primaryColor: Colors.amber,
-      secondaryColor: Colors.orange,
+      isUnlocked: false,
+      primaryColor: Colors.brown.shade800,
+      secondaryColor: Colors.white,
+      assetPath: 'assets/characters/eagle.png',
       attributes: {
         'jumpPower': 1.2,
         'speed': 1.2,
         'dashPower': 1.2,
-        'coinBonus': 1.2, // Altın bonusu
+        'coinMultiplier': 1.5,
       },
     ),
   ];
@@ -146,7 +159,7 @@ class CharacterManager {
 
     for (var character in _characters) {
       final isUnlocked = prefs.getBool('character_${character.id}') ??
-          character.id == 'runner';
+          character.id == 'rabbit';
       result.add(character.copyWith(isUnlocked: isUnlocked));
     }
 

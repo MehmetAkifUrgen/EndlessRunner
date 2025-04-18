@@ -17,6 +17,7 @@ import 'package:flutter/painting.dart';
 import '../models/particles/particle_system.dart';
 import '../models/character.dart';
 
+
 class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   // Oyun değişkenleri
   double groundHeight = 80.0;
@@ -73,10 +74,10 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   double slowMotionTimer = 0;
 
   // GameState erişimi için context
-  BuildContext? context;
+  // BuildContext? context;
 
   // onGameReady callback
-  Function(RunnerGame game)? onGameReady;
+  // Function(RunnerGame game)? onGameReady;
 
   // Ses servisi
   final AudioService _audioService = AudioService();
@@ -85,35 +86,45 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
   late ParticleSystem particleSystem;
 
   // Karakter sistemi
-  PlayerCharacter? selectedCharacter;
+  final PlayerCharacter? selectedCharacter;
+  final GameTheme? currentTheme;
+
+  // Constructor güncellendi
+  RunnerGame({
+    required this.selectedCharacter,
+    required this.currentTheme,
+    required this.currentLevel,
+    required this.highScore,
+  });
 
   @override
   Future<void> onLoad() async {
     // GameState'i alalım
-    final gameState = context != null
-        ? Provider.of<GameState>(context!, listen: false)
-        : null;
+    // final gameState = context != null
+    //     ? Provider.of<GameState>(context!, listen: false)
+    //     : null;
 
     // Mevcut temayı al
-    final currentTheme = gameState?.currentTheme;
+    // final currentTheme = gameState?.currentTheme;
 
     // Mevcut karakteri al
-    selectedCharacter = gameState?.currentCharacter;
+    // selectedCharacter = gameState?.currentCharacter;
 
     // Mevcut seviyeyi al ve oyun değişkenlerini ayarla
-    if (gameState != null) {
-      currentLevel = gameState.currentLevel;
-
+    if (currentLevel != null) {
       // Seviye çarpanlarını ayarla
-      levelSpeedMultiplier = currentLevel?.speedMultiplier ?? 1.0;
-      levelScoreMultiplier = currentLevel?.scoreMultiplier ?? 1.0;
-      levelObstacleFrequency = currentLevel?.obstacleFrequency ?? 2;
+      levelSpeedMultiplier = currentLevel!.speedMultiplier;
+      levelScoreMultiplier = currentLevel!.scoreMultiplier;
+      levelObstacleFrequency = currentLevel!.obstacleFrequency;
 
       // Başlangıç hızını seviyeye göre ayarla
       initialGameSpeed = 300.0 * levelSpeedMultiplier;
       gameSpeed = initialGameSpeed;
 
-      print("Seviye yüklendi: ${currentLevel?.name}, Hız: $gameSpeed");
+      print("Seviye yüklendi: ${currentLevel!.name}, Hız: $gameSpeed");
+    } else {
+      print("UYARI: currentLevel null geldi!");
+      // Varsayılan değerler zaten ayarlı
     }
 
     // Parçacık sistemi oluştur
@@ -128,16 +139,17 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
           ..shader = LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
+            // Parametreden gelen temayı kullan
             colors: currentTheme?.backgroundGradient ??
                 [Colors.lightBlue.shade300, Colors.blue.shade600],
           ).createShader(Rect.fromLTWH(0, 0, size.x, size.y)),
       ),
     );
 
-    // Dağlar (arka plan)
+    // Dağlar (arka plan) - Parametreden gelen temayı kullan
     _addMountains(currentTheme);
 
-    // Çimenli yer zemini
+    // Çimenli yer zemini - Parametreden gelen temayı kullan
     add(
       GrassComponent(
         position: Vector2(0, size.y - groundHeight),
@@ -151,6 +163,9 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
 
     // Oyuncu - önceden oluşturulmamışsa oluştur
     if (_player == null) {
+      // Parametreden gelen karakter ve temayı kullan
+      print(
+          "RunnerGame.onLoad: PlayerComponent oluşturuluyor. Karakter ID: ${selectedCharacter?.id ?? 'PARAM NULL'}");
       _player = PlayerComponent(
         position: Vector2(size.x * 0.2, size.y - groundHeight),
         game: this,
@@ -158,7 +173,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
             currentTheme?.playerColor ??
             Colors.red,
         secondaryColor: selectedCharacter?.secondaryColor,
-        character: selectedCharacter,
+        character: selectedCharacter, // Parametreden gelen karakter
       );
       _player!.isOnGround = true;
       _player!.isJumping = false;
@@ -197,7 +212,7 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
     _audioService.playMusic(MusicTrack.game);
 
     // onGameReady callback'i çağır
-    onGameReady?.call(this);
+    // onGameReady?.call(this);
 
     return super.onLoad();
   }
@@ -299,16 +314,16 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
     }
 
     // Tema bilgisini al
-    final gameState = context != null
-        ? Provider.of<GameState>(context!, listen: false)
-        : null;
-    final obstacleColor = gameState?.currentTheme.obstacleColor;
+    // final gameState = context != null
+    //     ? Provider.of<GameState>(context!, listen: false)
+    //     : null;
+    // final obstacleColor = gameState?.currentTheme.obstacleColor;
 
     // Engellerin çeşitliliğini arttır
     final obstacle = ObstacleComponent(
       position: Vector2(size.x + 50, yPosition),
       type: type,
-      color: obstacleColor,
+      color: currentTheme?.obstacleColor, // Temadan rengi al
     );
 
     add(obstacle);
@@ -377,32 +392,32 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
     scoreText.text = 'SCORE: $score';
 
     // GameState'e skoru bildir
-    if (context != null) {
-      final gameState = Provider.of<GameState>(context!, listen: false);
-      gameState.addScore(bonusAmount);
+    // if (context != null) {
+    //   final gameState = Provider.of<GameState>(context!, listen: false);
+    //   gameState.addScore(bonusAmount);
 
-      // Seviye kontrolü - seviye atladıysa mesaj göster
-      if (gameState.playerLevel > (currentLevel?.id ?? 1)) {
-        // Yeni seviyeyi al
-        currentLevel = gameState.currentLevel;
+    //   // Seviye kontrolü - seviye atladıysa mesaj göster
+    //   if (gameState.playerLevel > (currentLevel?.id ?? 1)) {
+    //     // Yeni seviyeyi al
+    //     currentLevel = gameState.currentLevel;
 
-        // Seviye mesajını göster
-        showLevelUpMessage = true;
-        levelUpMessage = "Seviye Atladın: ${currentLevel?.name}";
-        levelUpMessageTimer = 3.0; // 3 saniye göster
+    //     // Seviye mesajını göster
+    //     showLevelUpMessage = true;
+    //     levelUpMessage = "Seviye Atladın: ${currentLevel?.name}";
+    //     levelUpMessageTimer = 3.0; // 3 saniye göster
 
-        // Oyun değişkenlerini güncelle
-        levelSpeedMultiplier = currentLevel?.speedMultiplier ?? 1.0;
-        levelScoreMultiplier = currentLevel?.scoreMultiplier ?? 1.0;
-        levelObstacleFrequency = currentLevel?.obstacleFrequency ?? 2;
+    //     // Oyun değişkenlerini güncelle
+    //     levelSpeedMultiplier = currentLevel?.speedMultiplier ?? 1.0;
+    //     levelScoreMultiplier = currentLevel?.scoreMultiplier ?? 1.0;
+    //     levelObstacleFrequency = currentLevel?.obstacleFrequency ?? 2;
 
-        // Zamanlayıcıyı güncelle
-        obstacleSpawnTimer = Timer(levelObstacleFrequency.toDouble(),
-            onTick: _spawnObstacle, repeat: true);
+    //     // Zamanlayıcıyı güncelle
+    //     obstacleSpawnTimer = Timer(levelObstacleFrequency.toDouble(),
+    //         onTick: _spawnObstacle, repeat: true);
 
-        print("Seviye atlandı! Yeni seviye: ${currentLevel?.name}");
-      }
-    }
+    //     print("Seviye atlandı! Yeni seviye: ${currentLevel?.name}");
+    //   }
+    // }
   }
 
   void loseLife() {
@@ -489,13 +504,13 @@ class RunnerGame extends FlameGame with HasCollisionDetection, HasGameRef {
       });
 
       // GameState güncelleme
-      if (context != null) {
-        try {
-          Provider.of<GameState>(context!, listen: false).addScore(score);
-        } catch (e) {
-          print("GameState update error: $e");
-        }
-      }
+      // if (context != null) {
+      //   try {
+      //     Provider.of<GameState>(context!, listen: false).addScore(score);
+      //   } catch (e) {
+      //     print("GameState update error: $e");
+      //   }
+      // }
     }
 
     // Oyun bittiğini bildir
@@ -2436,24 +2451,56 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
-  late RunnerGame _game;
+  // _game değişkenini nullable yap ve başlangıçta null ata
+  RunnerGame? _game;
+  bool _isGameInitialized =
+      false; // Oyunun başlatılıp başlatılmadığını takip et
   bool _isPaused = false;
   String _errorMessage = '';
-  bool _showTutorial = true; // Tutorial gösterme durumu
+  bool _showTutorial = true;
 
   @override
   void initState() {
     super.initState();
-    _game = RunnerGame();
+    // initState içinde context kullanmadan önce GameState'e eriş
+    // WidgetsBinding.instance.addPostFrameCallback ile context'in hazır olmasını bekle
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final gameState = Provider.of<GameState>(context, listen: false);
+        // setState içinde _game'i başlat
+        setState(() {
+          _game = RunnerGame(
+            selectedCharacter: gameState.currentCharacter,
+            currentTheme: gameState.currentTheme,
+            currentLevel: gameState.currentLevel,
+            highScore: gameState.highScore,
+          );
+          _isGameInitialized = true; // Oyun başlatıldı olarak işaretle
+
+          // Geri çağırmaları (callback) burada ayarla
+          _game?.onGameOver = () {
+            if (mounted) {
+              setState(() {}); // Oyun bittiğinde UI'ı güncelle
+              // Yüksek skoru GameState'e bildir (opsiyonel, zaten _saveData içinde yapılıyor)
+              if (_game != null && _game!.score > _game!.highScore) {
+                // GameState'e erişim build context üzerinden olmalı
+                // Bu nedenle bu mantık belki de build içinde veya başka bir yerde olmalı
+                Provider.of<GameState>(context, listen: false)
+                    .addScore(_game!.score);
+              }
+            }
+          };
+          _game?.onLifeLost = () {
+            if (mounted) {
+              setState(() {}); // Can kaybedildiğinde UI'ı güncelle
+            }
+          };
+        });
+      }
+    });
 
     // İzleme listesi ekle
     WidgetsBinding.instance.addObserver(this);
-
-    // Düzenli state kontrol timer'ı kur
-    // Her frame'de oyunun durumunu kontrol et
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkGameState();
-    });
 
     // 3 saniye sonra tutorial'ı gizle
     Future.delayed(Duration(seconds: 3), () {
@@ -2463,14 +2510,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         });
       }
     });
-
-    // Ekstra özellikleri onGameReady içinde ayarlayalım
-    _game.onGameReady = (game) {
-      // GameState'ten yüksek skoru al
-      final gameState = Provider.of<GameState>(context, listen: false);
-      _game.highScore = gameState.highScore;
-      _game.context = context;
-    };
   }
 
   @override
@@ -2494,57 +2533,62 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isSmallScreen = screenSize.width < 600;
+    // GameState'e erişim (build metodu içinde güvenli)
+    final gameState = Provider.of<GameState>(context);
 
-    // Responsive değerler
-    final iconSize = isSmallScreen ? 20.0 : 28.0;
-    final fontSize = isSmallScreen ? 12.0 : 16.0;
-    final paddingSize = isSmallScreen ? 8.0 : 12.0;
-    final containerHeight = isSmallScreen ? 10.0 : 12.0;
+    // Eğer _game henüz başlatılmadıysa bir yükleme göstergesi göster
+    if (!_isGameInitialized || _game == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
+    // _game null değilse GameWidget'ı oluştur
     return Scaffold(
       body: Stack(
         children: [
           Listener(
             behavior: HitTestBehavior.opaque,
             onPointerDown: (PointerDownEvent event) {
-              if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+              if (!_isPaused && !_game!.isGameOver && _game!.hasLayout) {
                 print("Listener: Zıplama başlatılıyor!");
-                _game.startPlayerJumpCharge();
+                _game!.startPlayerJumpCharge();
               }
             },
             onPointerUp: (PointerUpEvent event) {
-              if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+              if (!_isPaused && !_game!.isGameOver && _game!.hasLayout) {
                 print("Listener: Zıplama gerçekleştiriliyor!");
-                _game.executePlayerJump();
+                _game!.executePlayerJump();
               }
             },
             onPointerCancel: (PointerCancelEvent event) {
-              if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+              if (!_isPaused && !_game!.isGameOver && _game!.hasLayout) {
                 print("Listener: Zıplama iptal ediliyor!");
-                _game.executePlayerJump();
+                // Zıplama iptal edildiğinde de executeJump çağrılabilir veya farklı bir mantık uygulanabilir
+                _game!.executePlayerJump();
               }
             },
             child: GestureDetector(
               // Kayma hareketi için aşağı kaydırma
               onVerticalDragStart: (details) {
-                if (!_isPaused && !_game.isGameOver && _game.hasLayout) {
+                if (!_isPaused && !_game!.isGameOver && _game!.hasLayout) {
                   print("Kayma!");
-                  _game.slidePlayer();
+                  _game!.slidePlayer();
                 }
               },
               // Dash hareketi için hızlı yatay kaydırma
               onHorizontalDragEnd: (details) {
                 if (!_isPaused &&
-                    !_game.isGameOver &&
-                    _game.hasLayout &&
+                    !_game!.isGameOver &&
+                    _game!.hasLayout &&
                     details.velocity.pixelsPerSecond.dx.abs() > 300) {
                   print("Dash!");
-                  _game.dashPlayer();
+                  _game!.dashPlayer();
                 }
               },
-              child: GameWidget(game: _game),
+              child: GameWidget(game: _game!),
             ),
           ),
 
@@ -2553,15 +2597,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             child: Column(
               children: [
                 Padding(
-                  padding: EdgeInsets.all(paddingSize),
+                  padding: EdgeInsets.all(8.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Kalpler
                       Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: paddingSize,
-                          vertical: paddingSize / 2,
+                          horizontal: 12.0,
+                          vertical: 6.0,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.black54,
@@ -2572,11 +2616,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           children: List.generate(
                             3,
                             (index) => Icon(
-                              index < _game.lives
+                              index < _game!.lives
                                   ? Icons.favorite
                                   : Icons.favorite_border,
                               color: Colors.red,
-                              size: iconSize,
+                              size: 24,
                             ),
                           ),
                         ),
@@ -2585,10 +2629,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       // Zıplama animasyonu - enerji çubuğu
                       Expanded(
                         child: Padding(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: paddingSize),
+                          padding: EdgeInsets.symmetric(horizontal: 12.0),
                           child: Container(
-                            height: containerHeight,
+                            height: 12,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
@@ -2616,12 +2659,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                           ],
                                         ),
                                       ),
-                                      height: containerHeight - 4,
-                                      width: _game.hasLayout &&
-                                              _game.isPlayerChargingJump
+                                      width: _game!.hasLayout &&
+                                              _game!.isPlayerChargingJump
                                           ? math.min(
-                                              (_game.playerJumpChargeDuration /
-                                                      _game
+                                              (_game!.playerJumpChargeDuration /
+                                                      _game!
                                                           .playerMaxChargeTime) *
                                                   constraints.maxWidth,
                                               constraints.maxWidth - 4)
@@ -2638,8 +2680,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       // Coin counter ve Combo
                       Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: paddingSize * 1.5,
-                          vertical: paddingSize / 2,
+                          horizontal: 12.0 * 1.5,
+                          vertical: 6.0,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.black54,
@@ -2654,26 +2696,26 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                 Icon(
                                   Icons.monetization_on,
                                   color: Colors.amber,
-                                  size: iconSize,
+                                  size: 24,
                                 ),
                                 SizedBox(width: 4),
                                 Text(
-                                  '${_game.score}',
+                                  '${_game!.score}',
                                   style: TextStyle(
-                                    fontSize: fontSize,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                   ),
                                 ),
                               ],
                             ),
-                            if (_game.combo > 0)
+                            if (_game!.combo > 0)
                               Text(
-                                'Combo: ${_game.combo}x',
+                                'Combo: ${_game!.combo}x',
                                 style: TextStyle(
-                                  fontSize: fontSize - 2,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: _getComboColor(_game.combo),
+                                  color: _getComboColor(_game!.combo),
                                 ),
                               ),
                           ],
@@ -2690,15 +2732,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           icon:
                               Icon(_isPaused ? Icons.play_arrow : Icons.pause),
                           color: Colors.white,
-                          iconSize: iconSize,
-                          padding: EdgeInsets.all(paddingSize / 2),
+                          iconSize: 24,
+                          padding: EdgeInsets.all(6.0),
                           constraints: BoxConstraints(),
-                          onPressed: () {
-                            setState(() {
-                              _isPaused = !_isPaused;
-                              _game.isPaused = _isPaused;
-                            });
-                          },
+                          onPressed: _togglePause,
                         ),
                       ),
                     ],
@@ -2706,13 +2743,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ),
 
                 // Aktif güçler göstergesi
-                if (_game.hasMagnet || _game.hasShield || _game.hasSlowMotion)
+                if (_game!.hasMagnet ||
+                    _game!.hasShield ||
+                    _game!.hasSlowMotion)
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: paddingSize),
+                    padding: EdgeInsets.symmetric(horizontal: 8.0),
                     child: Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: paddingSize,
-                        vertical: paddingSize / 2,
+                        horizontal: 8.0,
+                        vertical: 6.0,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.black54,
@@ -2723,29 +2762,23 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (_game.hasMagnet)
+                            if (_game!.hasMagnet)
                               _buildPowerUpIndicator(
                                 Icons.attractions,
                                 Colors.purple,
-                                _game.magnetTimer,
-                                fontSize,
-                                iconSize * 0.8,
+                                _game!.magnetTimer,
                               ),
-                            if (_game.hasShield)
+                            if (_game!.hasShield)
                               _buildPowerUpIndicator(
                                 Icons.shield,
                                 Colors.blue,
-                                _game.shieldTimer,
-                                fontSize,
-                                iconSize * 0.8,
+                                _game!.shieldTimer,
                               ),
-                            if (_game.hasSlowMotion)
+                            if (_game!.hasSlowMotion)
                               _buildPowerUpIndicator(
                                 Icons.hourglass_bottom,
                                 Colors.lightBlue,
-                                _game.slowMotionTimer,
-                                fontSize,
-                                iconSize * 0.8,
+                                _game!.slowMotionTimer,
                               ),
                           ],
                         ),
@@ -2756,8 +2789,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 // Tutorial yukarıda gösterilsin
                 if (_showTutorial)
                   Container(
-                    margin: EdgeInsets.all(paddingSize),
-                    padding: EdgeInsets.all(paddingSize),
+                    margin: EdgeInsets.all(8.0),
+                    padding: EdgeInsets.all(8.0),
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.black54,
@@ -2778,7 +2811,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           'Controls:',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: fontSize,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -2789,7 +2822,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                           '• Swipe Right fast: Dash',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: fontSize - 2,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -2803,13 +2836,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           if (_errorMessage.isNotEmpty)
             Center(
               child: Container(
-                padding: EdgeInsets.all(paddingSize * 2),
+                padding: EdgeInsets.all(12.0 * 2),
                 color: Colors.black54,
                 child: Text(
                   _errorMessage,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: fontSize,
+                    fontSize: 16,
                   ),
                 ),
               ),
@@ -2819,7 +2852,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           if (_isPaused)
             Center(
               child: Container(
-                padding: EdgeInsets.all(paddingSize * 2),
+                padding: EdgeInsets.all(12.0 * 2),
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(15),
@@ -2831,16 +2864,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       'PAUSED',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: fontSize * 1.5,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: paddingSize * 2),
+                    SizedBox(height: 12.0),
                     Text(
                       'Tap to continue',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: fontSize,
+                        fontSize: 16,
                       ),
                     ),
                   ],
@@ -2849,11 +2882,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             ),
 
           // Oyun bitti ekranı
-          if (_game.isGameOver)
+          if (_game!.isGameOver)
             Center(
               child: Container(
-                width: isSmallScreen ? screenSize.width * 0.9 : 350,
-                padding: EdgeInsets.all(paddingSize * 2),
+                width: 350,
+                padding: EdgeInsets.all(12.0 * 2),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Colors.black87, Colors.blueGrey.shade900],
@@ -2884,17 +2917,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                         'GAME OVER',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: fontSize * 2,
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 3,
                         ),
                       ),
                     ),
-                    SizedBox(height: paddingSize * 1.5),
+                    SizedBox(height: 12.0),
 
                     // Puanlar
                     Container(
-                      padding: EdgeInsets.all(paddingSize * 1.5),
+                      padding: EdgeInsets.all(12.0 * 1.5),
                       decoration: BoxDecoration(
                         color: Colors.black38,
                         borderRadius: BorderRadius.circular(15),
@@ -2905,21 +2938,20 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.stars,
-                                  color: Colors.amber, size: iconSize),
-                              SizedBox(width: paddingSize),
+                              Icon(Icons.stars, color: Colors.amber, size: 24),
+                              SizedBox(width: 8),
                               Text(
-                                'Score: ${_game.score}',
+                                'Score: ${_game!.score}',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: fontSize * 1.5,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
-                          SizedBox(height: paddingSize),
+                          SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
@@ -2927,14 +2959,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                               Icon(
                                 Icons.emoji_events,
                                 color: Colors.amber,
-                                size: iconSize,
+                                size: 24,
                               ),
-                              SizedBox(width: paddingSize),
+                              SizedBox(width: 8),
                               Text(
-                                'High Score: ${_game.highScore}',
+                                'High Score: ${_game!.highScore}',
                                 style: TextStyle(
                                   color: Colors.amber,
-                                  fontSize: fontSize * 1.2,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -2945,7 +2977,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       ),
                     ),
 
-                    SizedBox(height: paddingSize * 2),
+                    SizedBox(height: 12.0),
 
                     // Butonlar
                     Row(
@@ -2957,33 +2989,38 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                             label: Text(
                               'PLAY AGAIN',
                               style: TextStyle(
-                                fontSize: fontSize,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             onPressed: () {
-                              // High score'u kaydet
-                              if (_game.score > _game.highScore) {
-                                Provider.of<GameState>(
-                                  context,
-                                  listen: false,
-                                ).addScore(_game.score);
-                              }
+                              final gameState = Provider.of<GameState>(
+                                context,
+                                listen: false,
+                              );
                               setState(() {
-                                _game = RunnerGame();
-                                // GameState'ten yüksek skoru al
-                                final gameState = Provider.of<GameState>(
-                                  context,
-                                  listen: false,
+                                _game = RunnerGame(
+                                  selectedCharacter: gameState.currentCharacter,
+                                  currentTheme: gameState.currentTheme,
+                                  currentLevel: gameState.currentLevel,
+                                  highScore: gameState.highScore,
                                 );
-                                _game.highScore = gameState.highScore;
-                                _game.context = context;
+                                _isGameInitialized =
+                                    true; // Tekrar başlatıldığını işaretle
+                                // Callback'leri tekrar ayarla
+                                _game?.onGameOver = () {
+                                  if (mounted) setState(() {});
+                                  // Provider.of<GameState>(context, listen: false).addScore(_game!.score);
+                                };
+                                _game?.onLifeLost = () {
+                                  if (mounted) setState(() {});
+                                };
                               });
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.orange,
                               padding: EdgeInsets.symmetric(
-                                vertical: paddingSize,
+                                vertical: 12.0,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -2991,31 +3028,24 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
-                        SizedBox(width: paddingSize),
+                        SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton.icon(
                             icon: Icon(Icons.home, color: Colors.white),
                             label: Text(
                               'MAIN MENU',
                               style: TextStyle(
-                                fontSize: fontSize,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             onPressed: () {
-                              // High score'u kaydet
-                              if (_game.score > _game.highScore) {
-                                Provider.of<GameState>(
-                                  context,
-                                  listen: false,
-                                ).addScore(_game.score);
-                              }
-                              Navigator.of(context).pop(); // Ana ekrana dön
+                              Navigator.of(context).pop();
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               padding: EdgeInsets.symmetric(
-                                vertical: paddingSize,
+                                vertical: 12.0,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -3039,22 +3069,19 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     IconData icon,
     Color color,
     double timeLeft,
-    double fontSize,
-    double iconSize,
   ) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 4.0),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: iconSize),
+          Icon(icon, color: color),
           SizedBox(width: 4),
           Text(
             '${timeLeft.toStringAsFixed(1)}s',
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.bold,
-              fontSize: fontSize - 2,
             ),
           ),
         ],
@@ -3076,9 +3103,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     setState(() {
       _isPaused = !_isPaused;
       if (_isPaused) {
-        _game.pauseGame();
+        _game?.pauseGame(); // Null check
       } else {
-        _game.resumeGame();
+        _game?.resumeGame(); // Null check
       }
     });
   }
