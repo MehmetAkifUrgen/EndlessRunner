@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'character.dart';
+import '../domain/entities/character.dart';
 
 enum GravityDirection { down, left, right, up }
 

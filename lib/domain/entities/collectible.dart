@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'obstacle.dart';
+import 'obstacle.dart'; // Aynı klasörde
 import 'package:flame/components.dart';
 
 enum CollectibleType {

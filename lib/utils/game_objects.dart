@@ -1,7 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import '../models/obstacle.dart';
-import '../models/collectible.dart';
+import '../domain/entities/obstacle.dart'; // Güncellendi
+import '../domain/entities/collectible.dart'; // Güncellendi
 import 'dart:math' as math;
 
 class GameObjects {
@@ -55,9 +55,10 @@ class GameObjects {
   static PositionComponent createCollectible(CollectibleType type) {
     final collectible = CircleComponent(
       radius: 12.5,
-      paint: Paint()..color = Colors.yellowAccent,
+      paint: Paint()..color = Colors.yellowAccent, // Renk türe göre değişebilir
       anchor: Anchor.center,
     );
+    // TODO: Farklı toplanabilir türleri için farklı görünümler ekle
     return collectible;
   }
 

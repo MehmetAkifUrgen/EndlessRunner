@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import 'particle.dart';
+import 'particle.dart'; // Aynı klasörde
 import 'package:flutter/painting.dart';
 
 class ParticleSystem extends Component {

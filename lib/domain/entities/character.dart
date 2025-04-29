@@ -46,7 +46,7 @@ class PlayerCharacter {
   }
 }
 
-// Karakter listesi sağlayan sınıf
+// Karakter listesi sağlayan sınıf (Bu kısım domain/repository veya data/datasource katmanına taşınabilir)
 class CharacterManager {
   static final List<PlayerCharacter> _characters = [
     // Varsayılan karakter (ücretsiz)
@@ -142,7 +142,7 @@ class CharacterManager {
   static PlayerCharacter getCharacterById(String id) {
     return _characters.firstWhere(
       (character) => character.id == id,
-      orElse: () => _characters.first,
+      orElse: () => _characters.first, // Varsayılan karakteri döndür
     );
   }
 
@@ -159,7 +159,7 @@ class CharacterManager {
 
     for (var character in _characters) {
       final isUnlocked = prefs.getBool('character_${character.id}') ??
-          character.id == 'rabbit';
+          character.id == 'rabbit'; // Tavşan varsayılan olarak açık
       result.add(character.copyWith(isUnlocked: isUnlocked));
     }
 
