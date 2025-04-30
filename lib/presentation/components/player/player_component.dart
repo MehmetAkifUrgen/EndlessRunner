@@ -5,12 +5,11 @@ import 'dart:math' as math;
 import 'package:flutter_application_baris/presentation/pages/game_screen.dart'; // RunnerGame
 import 'package:flutter_application_baris/domain/entities/character.dart'; // PlayerCharacter
 import '../particles/particle_system.dart'; // ParticleSystem
-import 'package:flutter_application_baris/services/audio_service.dart'; // AudioService ve SoundEffect
+//import 'package:flutter_application_baris/services/audio_service.dart'; // AudioService ve SoundEffect
 import '../obstacles/obstacle_component.dart'; // ObstacleComponent
 import '../collectibles/collectible_component.dart'; // CollectibleComponent
 
-class PlayerComponent extends PositionComponent
-    with CollisionCallbacks, HasGameRef<RunnerGame> {
+class PlayerComponent extends PositionComponent with CollisionCallbacks {
   // Oyuncu özellikleri
   final RunnerGame game;
   final PlayerCharacter? character;
@@ -290,7 +289,7 @@ class PlayerComponent extends PositionComponent
     }
 
     // Karakter ID'sine göre çiz, varsayılan olarak tavşan
-    final characterId = game.selectedCharacter?.id ?? 'rabbit';
+    final characterId = character?.id ?? 'rabbit';
 
     switch (characterId) {
       case 'rabbit':
@@ -465,14 +464,14 @@ class PlayerComponent extends PositionComponent
       canDoubleJump = true; // İlk zıplamadan sonra çift zıplama hakkı
       isChargingJump = false;
       jumpChargeDuration = 0;
-      game.audioService.playSfx(SoundEffect.jump);
+      //game.audioService.playSfx(SoundEffect.jump);
       game.particleSystem.createStars(position: position, color: defaultColor);
     } else if (canDoubleJump && !isDoubleJumping) {
       // Çift zıplama
       velocityY = minJumpVelocity * jumpMultiplier * 0.8; // Daha kısa zıplama
       isDoubleJumping = true;
       canDoubleJump = false; // Çift zıplama hakkı kullanıldı
-      game.audioService.playSfx(SoundEffect.doubleJump);
+      //game.audioService.playSfx(SoundEffect.doubleJump);
       game.particleSystem
           .createExplosion(position: position, color: secondaryColor);
     }
@@ -513,7 +512,7 @@ class PlayerComponent extends PositionComponent
       isSliding = true;
       _slideTime = 0;
       size = Vector2(50, 35); // Kayarken boyut küçülür
-      game.audioService.playSfx(SoundEffect.slide);
+      //game.audioService.playSfx(SoundEffect.slide);
     }
   }
 
@@ -523,7 +522,7 @@ class PlayerComponent extends PositionComponent
       isDashing = true;
       _dashTime = 0;
       dashCooldownRemaining = dashCooldown; // Bekleme süresini başlat
-      game.audioService.playSfx(SoundEffect.dash);
+      //game.audioService.playSfx(SoundEffect.dash);
 
       // Dash sırasında geçici hız artışı
       game.gameSpeed *= (1.5 * dashMultiplier);
@@ -553,7 +552,7 @@ class PlayerComponent extends PositionComponent
         deactivateShieldEffect();
         other.removeFromParent();
         game.obstacles.remove(other);
-        game.audioService.playSfx(SoundEffect.hit);
+        //game.audioService.playSfx(SoundEffect.hit);
         game.particleSystem.createExplosion(
             position: other.position, color: Colors.blueAccent, count: 30);
       } else {
@@ -573,7 +572,7 @@ class PlayerComponent extends PositionComponent
       _invincibilityTime = 0;
 
       // Hasar alınca parçalanma efekti
-      game.audioService.playSfx(SoundEffect.hit);
+      //game.audioService.playSfx(SoundEffect.hit);
       game.particleSystem
           .createExplosion(position: position, color: Colors.redAccent);
     }

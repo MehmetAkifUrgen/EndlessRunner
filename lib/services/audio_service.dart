@@ -14,7 +14,11 @@ enum SoundEffect {
   powerUp,
   dash,
   slide,
-  levelUp
+  levelUp,
+  shoot,
+  reload,
+  ammoPickup,
+  weaponChange
 }
 
 // Oyun içinde kullanılacak müzik parçaları
@@ -49,6 +53,10 @@ class AudioService {
     SoundEffect.dash: 'dash',
     SoundEffect.slide: 'slide',
     SoundEffect.levelUp: 'levelup',
+    SoundEffect.shoot: 'shoot',
+    SoundEffect.reload: 'reload',
+    SoundEffect.ammoPickup: 'ammo_pickup',
+    SoundEffect.weaponChange: 'weapon_change',
   };
 
   // Android için ses efektleri
@@ -62,6 +70,10 @@ class AudioService {
     'dash': 'https://www.fesliyanstudios.com/play-mp3/7',
     'slide': 'https://www.fesliyanstudios.com/play-mp3/8',
     'levelup': 'https://www.fesliyanstudios.com/play-mp3/3',
+    'shoot': 'https://www.fesliyanstudios.com/play-mp3/12',
+    'reload': 'https://www.fesliyanstudios.com/play-mp3/13',
+    'ammo_pickup': 'https://www.fesliyanstudios.com/play-mp3/14',
+    'weapon_change': 'https://www.fesliyanstudios.com/play-mp3/2',
   };
 
   // Android için müzik
@@ -154,17 +166,35 @@ class AudioService {
     }
   }
 
-  Future<void> playSfx(SoundEffect effect) async {
+  Future<void> playSfx(dynamic effect) async {
     if (_isDisposed || !_isAndroid) return;
     if (!_isInitialized) await init();
     if (_isSoundEnabled && _soundPlayer != null) {
       try {
-        final effectName = _soundEffects[effect];
-        if (effectName != null) {
-          final url = _androidSounds[effectName] ?? _androidSounds['hit']!;
-          Source source = UrlSource(url);
-          await _soundPlayer?.play(source);
+        String effectName;
+
+        // Eğer SoundEffect enum'ı geldiyse
+        if (effect is SoundEffect) {
+          effectName = _soundEffects[effect] ?? 'hit';
         }
+        // Eğer string olarak isim geldiyse
+        else if (effect is String) {
+          effectName = effect;
+        }
+        // Hiçbiri değilse varsayılan sesi çal
+        else {
+          effectName = 'hit';
+        }
+
+        // Efekti isimlendirmeye çevir
+        if (effectName.startsWith('shoot_')) {
+          // Silah sesleri için özel durum - ör: 'shoot_pistol'
+          effectName = 'shoot';
+        }
+
+        final url = _androidSounds[effectName] ?? _androidSounds['hit']!;
+        Source source = UrlSource(url);
+        await _soundPlayer?.play(source);
       } catch (e) {
         print('Ses efekti çalınamadı: $e');
         // Eğer player bozulduysa, yeniden oluştur

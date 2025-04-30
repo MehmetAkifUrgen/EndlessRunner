@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'presentation/pages/home_screen.dart';
 import 'models/game_state.dart';
@@ -6,6 +7,13 @@ import 'services/ad_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Uygulamayı yatay modda sabitle
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
   // Sahte reklam servisi
   final adService = AdService();
   await adService.initialize();

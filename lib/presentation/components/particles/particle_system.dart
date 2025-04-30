@@ -1,13 +1,14 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import 'particle.dart'; // Aynı klasörde
+import 'particle.dart'; // Temel Particle sınıfımız
 import 'package:flutter/painting.dart';
+import 'dart:math' as math;
 
 class ParticleSystem extends Component {
   final List<Particle> particles = [];
   final int maxParticles;
-  final Random random = Random();
+  final math.Random random = math.Random();
 
   ParticleSystem({this.maxParticles = 200});
 
@@ -15,6 +16,12 @@ class ParticleSystem extends Component {
   void update(double dt) {
     // Ölen parçacıkları temizle
     particles.removeWhere((particle) => particle.isDead);
+
+    // Parçacık sayısını kontrol et - çok fazlaysa en eski parçacıkları kaldır
+    if (particles.length > maxParticles) {
+      final toRemove = particles.length - maxParticles;
+      particles.removeRange(0, toRemove);
+    }
 
     // Parçacıkları güncelle
     for (var particle in particles) {
@@ -26,10 +33,88 @@ class ParticleSystem extends Component {
 
   @override
   void render(Canvas canvas) {
-    for (var particle in particles) {
+    // Performans için sadece ekran içindeki parçacıkları çiz
+    final currentParticles = particles.length;
+
+    // Çok sayıda parçacık varsa hepsini işleme - FPS düşüşünü önlemek için
+    final toRender = currentParticles > 100
+        ? particles.sublist(currentParticles - 100)
+        : particles;
+
+    for (var particle in toRender) {
       particle.render(canvas);
     }
     super.render(canvas);
+  }
+
+  // Çok sayıda parçacık oluşturur
+  void createParticles({
+    required int count,
+    required Vector2 position,
+    required Vector2 particleSize,
+    required List<Color> colors,
+    required double speed,
+    required double lifespan,
+    double gravity = 200,
+    double rotationSpeed = 0.0,
+  }) {
+    // Maksimum parçacık sayısını kontrol et
+    final currentParticles = particles.length;
+    final allowedCount = math.min(count, maxParticles - currentParticles);
+
+    if (allowedCount <= 0) return;
+
+    for (var i = 0; i < allowedCount; i++) {
+      // Rastgele yön
+      final angle = random.nextDouble() * 2 * math.pi;
+      final speedValue = speed * (0.5 + random.nextDouble() * 0.5);
+
+      final velocity = Vector2(
+        math.cos(angle) * speedValue,
+        math.sin(angle) * speedValue,
+      );
+
+      // Rastgele renk
+      final color = colors[random.nextInt(colors.length)];
+
+      // Rastgele başlangıç pozisyonu (küçük bir ofset)
+      final startPos = Vector2(
+        position.x + random.nextDouble() * 10 - 5,
+        position.y + random.nextDouble() * 10 - 5,
+      );
+
+      // Parçacık oluştur ve listeye ekle
+      final particle = Particle(
+        position: startPos.clone(),
+        velocity: velocity,
+        color: color,
+        size: particleSize.x * (0.7 + random.nextDouble() * 0.6),
+        lifespan: lifespan * (0.7 + random.nextDouble() * 0.6),
+      );
+
+      particles.add(particle);
+    }
+  }
+
+  // Daha basit bir arayüz sağlar - createParticles ile aynı işi yapar
+  void emit({
+    required int count,
+    required Vector2 position,
+    required List<Color> colors,
+    required Vector2 size,
+    required double speed,
+    required double lifespan,
+    double gravity = 200,
+    double rotationSpeed = 0.0,
+  }) {
+    createParticles(
+      count: count,
+      position: position,
+      particleSize: size,
+      colors: colors,
+      speed: speed,
+      lifespan: lifespan,
+    );
   }
 
   // Dairesel parçacık patlaması
