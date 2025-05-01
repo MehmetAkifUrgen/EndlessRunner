@@ -410,7 +410,7 @@ class HumanPlayerComponent extends PositionComponent
   void _shootArrow() {
     // gameRef null kontrolü ekleyelim
     if (gameRef == null) {
-      print("HATA: gameRef null - ok atılamıyor");
+      print("ERROR: gameRef null - cannot shoot arrow");
       return;
     }
 
@@ -431,12 +431,12 @@ class HumanPlayerComponent extends PositionComponent
     arrowSpeed *= range;
 
     // Ok oluştur ve oyuna ekle
-    final arrow = BulletComponent(
+    final arrow = ArrowBulletComponent(
       bullet: Bullet(
         damage: 1.0,
         speed: arrowSpeed,
         size: 20.0,
-        color: Colors.brown,
+        color: Colors.brown.shade800,
       ),
       position: arrowPosition,
       direction: arrowDirection,
@@ -1958,5 +1958,79 @@ class HumanPlayerComponent extends PositionComponent
 
   double _getAnimationTime() {
     return DateTime.now().millisecondsSinceEpoch / 300;
+  }
+}
+
+// ArrowBulletComponent ekleyin, bu class dosyasının en altına ekleniyor
+class ArrowBulletComponent extends BulletComponent {
+  ArrowBulletComponent({
+    required Bullet bullet,
+    required Vector2 position,
+    required Vector2 direction,
+  }) : super(
+          bullet: bullet,
+          position: position,
+          direction: direction,
+        );
+
+  @override
+  void render(Canvas canvas) {
+    // Ok çizimi - standart yuvarlaklardan farklı olarak gerçek bir ok şeklinde
+    final arrowLength = bullet.size * 2.0;
+    final arrowWidth = bullet.size * 0.4;
+
+    // Ok gövdesi için boya
+    final shaftPaint = Paint()
+      ..color = Colors.brown.shade800
+      ..style = PaintingStyle.fill;
+
+    // Ok ucu için boya
+    final headPaint = Paint()
+      ..color = Colors.grey.shade300
+      ..style = PaintingStyle.fill;
+
+    // Ok tüyleri için boya
+    final featherPaint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.fill;
+
+    // Çizim merkezi
+    canvas.save();
+
+    // Oku hareket yönüne doğru döndür
+    final angle = math.atan2(direction.y, direction.x);
+    canvas.rotate(angle);
+
+    // Ok gövdesi (shaft)
+    canvas.drawRect(
+      Rect.fromLTWH(0, -arrowWidth / 2, arrowLength * 0.7, arrowWidth),
+      shaftPaint,
+    );
+
+    // Ok ucu (arrowhead)
+    final arrowHeadPath = Path();
+    arrowHeadPath.moveTo(arrowLength * 0.7, -arrowWidth * 1.5);
+    arrowHeadPath.lineTo(arrowLength, 0);
+    arrowHeadPath.lineTo(arrowLength * 0.7, arrowWidth * 1.5);
+    arrowHeadPath.close();
+    canvas.drawPath(arrowHeadPath, headPaint);
+
+    // Ok tüyleri (feathers)
+    final featherPath = Path();
+    featherPath.moveTo(0, -arrowWidth);
+    featherPath.lineTo(arrowLength * 0.3, -arrowWidth * 2);
+    featherPath.lineTo(arrowLength * 0.3, -arrowWidth / 2);
+    featherPath.close();
+    canvas.drawPath(featherPath, featherPaint);
+
+    // Alt tüy
+    final bottomFeatherPath = Path();
+    bottomFeatherPath.moveTo(0, arrowWidth);
+    bottomFeatherPath.lineTo(arrowLength * 0.3, arrowWidth * 2);
+    bottomFeatherPath.lineTo(arrowLength * 0.3, arrowWidth / 2);
+    bottomFeatherPath.close();
+    canvas.drawPath(bottomFeatherPath, featherPaint);
+
+    canvas.restore();
   }
 }
