@@ -480,6 +480,16 @@ class GameState with ChangeNotifier {
     notifyListeners();
   }
 
+  // Yüksek skoru güncelle
+  void updateHighScore(int newScore) {
+    if (newScore > _highScore) {
+      _highScore = newScore;
+      _saveData(); // Yeni yüksek skoru kaydet
+      print("Yüksek skor güncellendi: $_highScore");
+      notifyListeners();
+    }
+  }
+
   // Yerçekimi yönünü değiştir
   void changeGravity(GravityDirection direction) {
     _gravityDirection = direction;

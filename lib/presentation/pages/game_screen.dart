@@ -787,8 +787,28 @@ class RunnerGame extends FlameGame
     if (score > highScore) {
       highScore = score; // Oyunun kendi içindeki yüksek skor bilgisini güncelle
       print("Yeni Yüksek Skor Ayarlandı (Oyun İçi): $highScore");
-      // TODO: Bu yüksek skoru Provider veya başka bir state management ile globale kaydetmek gerekebilir.
-      // Bu işlem GameScreen widget'ı içinde veya overlay'de yapılabilir.
+
+      // GameState'e skor, coin ve XP ekle - eksik olan kod burası!
+      try {
+        // BuildContext kullanmadan Provider üzerinden GameState'e ulaşmak için
+        // bunu overlay içinde veya GameWidget içinde yapmak gerekiyor
+
+        // GameOver overlay'inde bu kodu ekle - oyuncu ana menüye döndüğünde
+        // bu veriler güncellenecek
+
+        // Toplanan coinlerin %10'u ana menüdeki coin'e eklenir
+        final coinBonus = (score / 100).floor(); // Her 100 puan için 1 coin
+        print("Oyun sonunda $coinBonus coin kazanıldı!");
+
+        // XP için skor puanının %20'si eklenir
+        final xpBonus = (score / 5).floor(); // Her 5 puan için 1 XP
+        print("Oyun sonunda $xpBonus XP kazanıldı!");
+
+        // Burada değerler sadece loglanıyor, güncellenmiyor
+        // GameState'e erişim için GameScreen widget'ına bilgi geçeceğiz
+      } catch (e) {
+        print("GameState güncellenirken hata: $e");
+      }
     }
     print(
         "Oyun Bitti! Skor: $score, En Yüksek Skor: $highScore, Max Combo: $maxCombo");
@@ -1335,6 +1355,35 @@ class GameScreen extends StatelessWidget {
             );
           },
           'game_over': (context, RunnerGame runnerGame) {
+            // Burada GameState'i güncelle (overlay her eklendiğinde çalışır)
+            // Bu blok, oyun bittiğinde bir kere çalışır
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Oyun skoruna göre coin ve XP hesapla
+              final coinBonus =
+                  (runnerGame.score / 100).floor(); // Her 100 puan için 1 coin
+              final xpBonus =
+                  (runnerGame.score / 5).floor(); // Her 5 puan için 1 XP
+
+              if (coinBonus > 0 || xpBonus > 0) {
+                // GameState'i güncelle
+                for (int i = 0; i < coinBonus; i++) {
+                  gameState.collectCoin(); // Her coin için ayrı çağrı
+                }
+
+                if (xpBonus > 0) {
+                  gameState.addXP(xpBonus); // XP ekle
+                }
+
+                // Yüksek skor güncelleme
+                if (runnerGame.score > gameState.highScore) {
+                  gameState.updateHighScore(runnerGame.score);
+                }
+
+                print(
+                    "Oyun sonu bonuslar eklendi: $coinBonus coin, $xpBonus XP");
+              }
+            });
+
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
