@@ -64,6 +64,13 @@ class HumanPlayerComponent extends PositionComponent
   bool isPoweredUp = false;
   double poweredUpTimer = 0;
 
+  // Kılıç sallama değişkenleri
+  bool isSwingingBlade = false;
+  double swingAngle = 0.0;
+  double swingDuration = 0.3; // Saniye cinsinden kılıç sallama süresi
+  double swingTimer = 0.0;
+  double swingRange = 70.0; // Kılıcın menzili
+
   // Oyun durumu
   PlayerState state = PlayerState.running;
 
@@ -95,6 +102,23 @@ class HumanPlayerComponent extends PositionComponent
 
     // Oyun durmuşsa güncelleme yapma
     if (gameRef.isPaused || gameRef.isGameOver) return;
+
+    // Kılıç sallama animasyonunu güncelle
+    if (isSwingingBlade) {
+      swingTimer += dt;
+      // Sallama animasyonu için açı hesapla (0'dan 180 dereceye)
+      swingAngle = math.pi * (swingTimer / swingDuration);
+
+      // Sallama bittiğinde sıfırla
+      if (swingTimer >= swingDuration) {
+        isSwingingBlade = false;
+        swingTimer = 0.0;
+        swingAngle = 0.0;
+      }
+
+      // Kılıç sallarken çarpışma kontrolü yap
+      _checkBladeCollision();
+    }
 
     // Zamanla güçlendirilmiş mermi durumunu güncelle
     if (isPoweredUp) {
@@ -335,64 +359,20 @@ class HumanPlayerComponent extends PositionComponent
 
   // Ateş etme işlemi
   void shoot() {
-    // Eğer yeniden dolduruyorsa ateş edemez
-    if (isReloading) return;
+    // Kılıç zaten sallanıyorsa bir şey yapma
+    if (isSwingingBlade) return;
 
-    // Eğer ateş etme hızı zamanlayıcısı dolmuşsa ve mermi varsa ateş edebilir
-    if (fireRateTimer <= 0 && ammoSystem.canShoot()) {
-      // Mermi harca
-      ammoSystem.shoot();
+    // Kılıç sallama başlat
+    isSwingingBlade = true;
+    swingTimer = 0.0;
+    state = PlayerState.shooting;
 
-      // Ateş etme soğuma süresi
-      fireRateTimer = 1.0 / currentWeapon.fireRate;
+    // Ses efekti - kaldırıldı
+    // gameRef.audioService.playSfx('sword_swing');
 
-      // Mermisiz kaldıysa otomatik yeniden doldur
-      if (!ammoSystem.canShoot()) {
-        reload();
-      }
-
-      // gameRef null kontrolü ekleyelim
-      if (gameRef == null) {
-        print("HATA: gameRef null - ateş edilemiyor");
-        return;
-      }
-
-      // Merminin çıkış konumunu hesapla (karakterin ön tarafından)
-      final bulletPosition = Vector2(
-        position.x + size.x * 0.3, // Silahın namlu pozisyonu
-        position.y - size.y * 0.6, // Karakter boyunun üst kısmı (omuza yakın)
-      );
-
-      // Mermi yönünü belirle (sağa doğru)
-      final bulletDirection = Vector2(1, 0);
-
-      // Mermi oluştur
-      final bullet = Bullet.fromWeapon(currentWeapon, isPowered: isPoweredUp);
-
-      // Ateş etme durumu sırasında animasyon göster
-      state = PlayerState.shooting;
-
-      // Mermi component'i ekle
-      gameRef.add(
-        BulletComponent(
-          bullet: bullet,
-          position: bulletPosition,
-          direction: bulletDirection,
-        ),
-      );
-
-      // Ses efekti - kaldırıldı
-      // gameRef.audioService.playSfx('shoot_${currentWeapon.type.toString().split('.').last}');
-
-      // Ateş etme parçacık efekti (namlu parlaması vb.)
-      // Parçacık sistemi null kontrolü ekleyelim
-      if (gameRef.particleSystem != null) {
-        _createMuzzleFlash(bulletPosition);
-      }
-    }
-    // Mermi yoksa yeniden doldur
-    else if (!ammoSystem.canShoot()) {
-      reload();
+    // Kılıç efekti oluştur (namlu parlaması yerine)
+    if (gameRef.particleSystem != null) {
+      _createSwordSlashEffect();
     }
   }
 
@@ -429,41 +409,46 @@ class HumanPlayerComponent extends PositionComponent
     // gameRef.audioService.playSfx('ammo_pickup');
   }
 
-  // Namlu parlaması efekti
-  void _createMuzzleFlash(Vector2 position) {
-    // Silah tipine göre renk ve büyüklük belirle
-    Color muzzleColor;
-    double muzzleSize;
-
-    switch (currentWeapon.type) {
-      case WeaponType.laserGun:
-        muzzleColor = Colors.blue;
-        muzzleSize = 15.0;
-        break;
-      case WeaponType.shotgun:
-        muzzleColor = Colors.orange;
-        muzzleSize = 12.0;
-        break;
-      case WeaponType.rifle:
-        muzzleColor = Colors.red;
-        muzzleSize = 10.0;
-        break;
-      case WeaponType.pistol:
-      default:
-        muzzleColor = Colors.yellow;
-        muzzleSize = 8.0;
-        break;
-    }
-
-    // Namlu parlaması parçacıklarını oluştur
-    gameRef.particleSystem?.emit(
-      count: 10,
-      position: position,
-      colors: [muzzleColor, Colors.white, Colors.yellow.shade600],
-      size: Vector2(muzzleSize, muzzleSize),
-      speed: 60,
-      lifespan: 0.2,
+  // Kılıç sallama parçacık efekti
+  void _createSwordSlashEffect() {
+    // Kılıcın konumunu hesapla
+    final swordPosition = Vector2(
+      position.x + size.x * 0.8, // Karakterin önünde
+      position.y - size.y * 0.5, // Karakter boyunun ortası
     );
+
+    // Kılıç efekti parçacıklarını oluştur
+    gameRef.particleSystem?.emit(
+      count: 15,
+      position: swordPosition,
+      colors: [Colors.white, Colors.lightBlue.shade200, Colors.blue.shade600],
+      size: Vector2(10, 10),
+      speed: 80,
+      lifespan: 0.3,
+    );
+  }
+
+  // Kılıç çarpışma kontrolü
+  void _checkBladeCollision() {
+    if (!isSwingingBlade) return;
+
+    // Kılıcın ucunun pozisyonunu hesapla (karakterin önünde)
+    final bladePositionX = position.x + size.x * 0.8;
+    final bladePositionY = position.y - size.y * 0.5;
+    final bladePosition = Vector2(bladePositionX, bladePositionY);
+
+    // Kılıç menzili içindeki düşmanları bul
+    for (final enemy in gameRef.enemies) {
+      // Düşmanla kılıç arasındaki mesafeyi hesapla
+      final distance = enemy.position.distanceTo(bladePosition);
+
+      // Eğer düşman kılıç menziline girdiyse hasar ver
+      if (distance < swingRange) {
+        final damage =
+            isPoweredUp ? 3.0 : 1.0; // Güçlendirilmiş ise daha fazla hasar
+        enemy.hit(damage);
+      }
+    }
   }
 
   // Durumu güncelle ve animasyon için kullan
@@ -625,7 +610,7 @@ class HumanPlayerComponent extends PositionComponent
     bandTailPath.close();
     canvas.drawPath(bandTailPath, headbandPaint);
 
-    // Kollar - koşma animasyonlu
+    // Kollar - koşma animasyonlu veya kılıç sallama
     final armPaint = Paint()..color = ninjaMainColor;
 
     // Sol kol - silah tutan
@@ -643,19 +628,56 @@ class HumanPlayerComponent extends PositionComponent
     leftArmPath.close();
     canvas.drawPath(leftArmPath, armPaint);
 
-    // Sağ kol - silah tutan
+    // Sağ kol - kılıç tutan
     final rightArmPath = Path();
-    rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
-    rightArmPath.quadraticBezierTo(size.x * (0.65 + armOffset / 100),
-        size.y * 0.4, size.x * (0.7 + armOffset / 100), size.y * 0.45);
-    rightArmPath.lineTo(size.x * (0.7 + armOffset / 100), size.y * 0.5);
-    rightArmPath.quadraticBezierTo(size.x * (0.65 + armOffset / 100),
-        size.y * 0.45, size.x * 0.6, size.y * 0.42);
-    rightArmPath.close();
+
+    // Kılıç sallama durumunda kolun açısını değiştir
+    double armAngle = 0.0;
+    if (isSwingingBlade) {
+      // Kılıç sallarken kolu yukarıdan aşağıya doğru hareket ettir
+      armAngle = -math.pi * 0.5 + swingAngle;
+    } else {
+      // Normal kol pozisyonu
+      armAngle = 0.0;
+    }
+
+    // Kola açı uygula - koşma animasyonu kaldırıldı
+    double armX = size.x * 0.65; // armOffset kaldırıldı
+    double armY = size.y * 0.40;
+
+    if (isSwingingBlade) {
+      // Sallama sırasında omuz bağlantısını sabit tut, dirsek ve bilek hareket etsin
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+
+      // Dirsek pozisyonu
+      double elbowX =
+          size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
+      double elbowY =
+          size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
+
+      // Bilek pozisyonu
+      double wristX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      double wristY = elbowY + math.sin(armAngle) * size.x * 0.2;
+
+      rightArmPath.lineTo(elbowX, elbowY);
+      rightArmPath.lineTo(wristX, wristY);
+      rightArmPath.lineTo(wristX - 5, wristY + 5);
+      rightArmPath.close();
+    } else {
+      // Normal kol çizimi - koşma animasyonu kaldırıldı
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+      rightArmPath.quadraticBezierTo(
+          armX, armY, armX + size.x * 0.1, armY + size.y * 0.1);
+      rightArmPath.lineTo(armX + size.x * 0.1, armY + size.y * 0.15);
+      rightArmPath.quadraticBezierTo(
+          armX, armY + size.y * 0.05, size.x * 0.6, size.y * 0.42);
+      rightArmPath.close();
+    }
+
     canvas.drawPath(rightArmPath, armPaint);
 
-    // Silah çizimi - silah tipine göre farklı
-    _renderWeapon(canvas, size, currentWeapon.type);
+    // Katana kılıcı çiz
+    _drawKatana(canvas, size, armAngle, isSwingingBlade);
 
     // Dokunulmazlık efekti
     if (isInvulnerable) {
@@ -670,143 +692,93 @@ class HumanPlayerComponent extends PositionComponent
     canvas.restore();
   }
 
-  // Silah çizim metodu - silah tipine göre farklı tasarımlar
-  void _renderWeapon(Canvas canvas, Vector2 size, WeaponType type) {
-    switch (type) {
-      case WeaponType.pistol:
-        _renderPistol(canvas, size);
-        break;
-      case WeaponType.rifle:
-        _renderRifle(canvas, size);
-        break;
-      case WeaponType.shotgun:
-        _renderShotgun(canvas, size);
-        break;
-      case WeaponType.laserGun:
-        _renderLaserGun(canvas, size);
-        break;
-      default:
-        _renderPistol(canvas, size);
+  // Katana kılıcı çizim metodu
+  void _drawKatana(
+      Canvas canvas, Vector2 size, double armAngle, bool isSwinging) {
+    // Kılıcın başlangıç pozisyonu (sağ elin ucu)
+    double handleX, handleY;
+
+    if (isSwinging) {
+      // Sallama sırasında kılıcın pozisyonu kola bağlı
+      double elbowX =
+          size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
+      double elbowY =
+          size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
+      handleX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      handleY = elbowY + math.sin(armAngle) * size.x * 0.2;
+    } else {
+      // Normal duruşta kılıcın pozisyonu
+      handleX = size.x * 0.75;
+      handleY = size.y * 0.4;
     }
-  }
 
-  void _renderPistol(Canvas canvas, Vector2 size) {
-    final gunPaint = Paint()..color = Colors.grey.shade800;
+    // Kılıç açısı
+    double swordAngle = isSwinging ? armAngle : math.pi * 0.1; // Hafif eğimli
 
-    // Tabanca gövdesi
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.68, size.y * 0.44, size.x * 0.2, size.y * 0.08),
-            Radius.circular(3)),
-        gunPaint);
+    // Kılıç uzunluğu ve genişliği
+    final bladeLength = size.x * 0.6; // Uzun bir katana
+    final bladeWidth = size.x * 0.03; // İnce bir bıçak
 
-    // Kabza
+    // Kılıç kabzası (handle)
+    final handlePaint = Paint()..color = Colors.brown.shade900;
+    final handleLength = size.x * 0.15;
+    final handleWidth = size.x * 0.04;
+
+    // Kılıç bıçağı (blade)
+    final bladePaint = Paint()..color = Colors.grey.shade300;
+
+    // Sallama animasyonu sırasında kılıç parıltısı
+    if (isSwinging) {
+      bladePaint.maskFilter = MaskFilter.blur(BlurStyle.outer, 2.0);
+      if (isPoweredUp) {
+        bladePaint.color =
+            Colors.lightBlue.shade200; // Güçlendirilmiş kılıç rengi
+      }
+    }
+
+    // Kabza ucundaki tutacağı çiz (tsuba)
+    final tsubaPaint = Paint()..color = Colors.black;
+    canvas.drawCircle(Offset(handleX, handleY), handleWidth * 1.5, tsubaPaint);
+
+    // Kabzayı çiz
+    canvas.save();
+    canvas.translate(handleX, handleY);
+    canvas.rotate(swordAngle + math.pi); // Kabza açısı (kılıcın tersi)
     canvas.drawRect(
         Rect.fromLTWH(
-            size.x * 0.7, size.y * 0.44, size.x * 0.04, size.y * 0.15),
-        gunPaint);
+            -handleLength, -handleWidth / 2, handleLength, handleWidth),
+        handlePaint);
+    canvas.restore();
 
-    // Namlu
+    // Bıçağı çiz
+    canvas.save();
+    canvas.translate(handleX, handleY);
+    canvas.rotate(swordAngle);
+
+    // Kılıç bıçağı
     canvas.drawRect(
-        Rect.fromLTWH(
-            size.x * 0.84, size.y * 0.42, size.x * 0.1, size.y * 0.05),
-        gunPaint);
-  }
+        Rect.fromLTWH(0, -bladeWidth / 2, bladeLength, bladeWidth), bladePaint);
 
-  void _renderRifle(Canvas canvas, Vector2 size) {
-    final gunPaint = Paint()..color = Colors.grey.shade700;
+    // Kılıç ucu (keskin köşe)
+    final bladeTipPath = Path();
+    bladeTipPath.moveTo(bladeLength, -bladeWidth / 2);
+    bladeTipPath.lineTo(bladeLength + bladeWidth * 3, 0);
+    bladeTipPath.lineTo(bladeLength, bladeWidth / 2);
+    bladeTipPath.close();
+    canvas.drawPath(bladeTipPath, bladePaint);
 
-    // Tüfek gövdesi
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.68, size.y * 0.43, size.x * 0.35, size.y * 0.07),
-            Radius.circular(2)),
-        gunPaint);
+    // Güçlendirilmiş kılıç için parıltı efekti
+    if (isPoweredUp) {
+      final glowPaint = Paint()
+        ..color = Colors.blue.withOpacity(0.3)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8.0);
 
-    // Namlu
-    canvas.drawRect(
-        Rect.fromLTWH(
-            size.x * 0.97, size.y * 0.42, size.x * 0.15, size.y * 0.04),
-        gunPaint);
+      canvas.drawRect(
+          Rect.fromLTWH(0, -bladeWidth, bladeLength, bladeWidth * 2),
+          glowPaint);
+    }
 
-    // Dipçik
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.68, size.y * 0.45, size.x * 0.05, size.y * 0.15),
-            Radius.circular(2)),
-        gunPaint);
-
-    // Şarjör
-    canvas.drawRect(
-        Rect.fromLTWH(size.x * 0.8, size.y * 0.5, size.x * 0.04, size.y * 0.1),
-        Paint()..color = Colors.grey.shade600);
-  }
-
-  void _renderShotgun(Canvas canvas, Vector2 size) {
-    final gunPaint = Paint()..color = Colors.brown.shade800;
-
-    // Pompalı gövde
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.68, size.y * 0.42, size.x * 0.3, size.y * 0.1),
-            Radius.circular(3)),
-        gunPaint);
-
-    // Uzun namlu
-    canvas.drawRect(
-        Rect.fromLTWH(
-            size.x * 0.94, size.y * 0.43, size.x * 0.2, size.y * 0.04),
-        gunPaint);
-
-    // Dipçik
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.68, size.y * 0.47, size.x * 0.06, size.y * 0.12),
-            Radius.circular(3)),
-        gunPaint);
-
-    // Metal detaylar
-    canvas.drawRect(
-        Rect.fromLTWH(
-            size.x * 0.75, size.y * 0.42, size.x * 0.02, size.y * 0.1),
-        Paint()..color = Colors.grey.shade700);
-  }
-
-  void _renderLaserGun(Canvas canvas, Vector2 size) {
-    final gunPaint = Paint()..color = Colors.blue.shade800;
-
-    // Lazer gövdesi
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.68, size.y * 0.4, size.x * 0.25, size.y * 0.1),
-            Radius.circular(5)),
-        gunPaint);
-
-    // Lazer namlu
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.9, size.y * 0.43, size.x * 0.15, size.y * 0.04),
-            Radius.circular(5)),
-        Paint()..color = Colors.blue.shade500);
-
-    // Enerji hücresi
-    canvas.drawCircle(Offset(size.x * 0.75, size.y * 0.45), size.x * 0.05,
-        Paint()..color = Colors.blue.shade300);
-
-    // Enerji ışık efekti
-    canvas.drawCircle(
-        Offset(size.x * 1.05, size.y * 0.45),
-        size.x * 0.03,
-        Paint()
-          ..color = Colors.lightBlue.shade100
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5));
+    canvas.restore();
   }
 
   void _renderInvulnerabilityEffect(Canvas canvas, Vector2 size, double timer) {
