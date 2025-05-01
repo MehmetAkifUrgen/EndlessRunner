@@ -521,21 +521,43 @@ class RunnerGame extends FlameGame
     if (collectibles.length < 3) {
       // Ekranda en fazla 3 toplanabilir olsun
       final random = math.Random();
-      final type = CollectibleType.values[random.nextInt(
-          CollectibleType.values.length)]; // Rastgele toplanabilir türü
+
+      // Toplanabilir türünü belirle - %70 ihtimalle altın olsun
+      CollectibleType type;
+      final typeRoll = random.nextDouble();
+
+      if (typeRoll < 0.70) {
+        type = CollectibleType.coin; // Çoğunlukla altın
+      } else if (typeRoll < 0.80) {
+        type = CollectibleType.extraLife; // %10 ihtimalle can
+      } else if (typeRoll < 0.85) {
+        type = CollectibleType.shield; // %5 ihtimalle kalkan
+      } else if (typeRoll < 0.90) {
+        type = CollectibleType.magnet; // %5 ihtimalle mıknatıs
+      } else if (typeRoll < 0.95) {
+        type = CollectibleType.slowMotion; // %5 ihtimalle yavaş çekim
+      } else {
+        type = CollectibleType.scoreBoost; // %5 ihtimalle skor artırıcı
+      }
+
+      // Toplanabilirin konumunu belirle
       final collectible = CollectibleComponent(
         position: Vector2(
           size.x + 100 + random.nextDouble() * 200,
           size.y -
               groundHeight -
               50 -
-              random.nextDouble() * 50, // Biraz yukarıda
+              random.nextDouble() * 100, // Daha yukarıda olabilsin
         ),
         type: type,
         game: this,
       );
+
       collectibles.add(collectible);
       add(collectible);
+
+      // Debug amaçlı
+      print("Toplanabilir oluşturuldu: ${type.toString()}");
     }
   }
 

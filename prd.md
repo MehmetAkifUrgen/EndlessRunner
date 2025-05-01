@@ -1,8 +1,18 @@
-# Oyun Projesi - PRD
+# Oyun Projesi - PRD (Güncelleme: Mayıs 2024)
 
 ## Proje Özeti
 
 "Endless Runner" oyunumuz, kullanıcılara eğlenceli ve bağımlılık yapıcı bir oyun deneyimi sunmak amacıyla geliştirilmiştir. Oyun, Flutter ve Flame oyun motoru kullanılarak oluşturulmuştur. Oyuncular, silahlı bir insan karakteri ile rastgele ortaya çıkan düşmanlarla mücadele ederek, engelleri atlayarak, ateş ederek, güç-yükseltmeleri toplayarak ve puanlarını en üst seviyeye çıkararak ilerlemektedir.
+
+## Teknik Özellikler
+- **Flutter Versiyonu**: 3.0.0+
+- **Flame Versiyonu**: 1.28.0
+- **Provider Versiyonu**: 6.0.5
+- **Dart SDK Versiyonu**: '>=3.0.0 <4.0.0'
+- **flutter_cube**: 0.1.1
+- **shared_preferences**: 2.2.1
+- **audioplayers**: 6.4.0
+- **just_audio**: 0.9.36
 
 ## Oyun Özellikleri
 
@@ -29,22 +39,61 @@
 
 ### Karakter Sistemi
 - **İnsan Karakteri**: Oyuncu, elinde silah taşıyan bir insan karakterini kontrol eder
-- **Silah Çeşitleri**: Tabanca, tüfek, lazer gibi farklı özelliklere sahip silahlar
-- **Karakter Kostümleri**: Farklı görünüm seçenekleri ve özellikler
-- **Karakter Güçlendirmeleri**: Oyun içi geliştirebilen karakter özellikleri
+- **Farklı Karakter Seçenekleri**: Beş farklı karakter bulunmaktadır:
+  - **Tavşan**: Başlangıç karakteri, dengeli özellikler (Ücretsiz)
+  - **Çita**: Yüksek hız, orta zıplama yeteneği (1000 altın)
+  - **Kurbağa**: Yüksek zıplama gücü, orta hız (1500 altın)
+  - **Tilki**: Güçlü dash yeteneği ve para çarpanı (2000 altın)
+  - **Kartal**: VIP karakter, tüm özelliklerde artış ve 1.5x para çarpanı (5000 altın)
+- **Karakter Özellikleri**: Her karakterin kendine özgü özellikleri vardır:
+  - **Zıplama Gücü**: Karakterin zıplama yüksekliğini etkiler
+  - **Hız**: Karakterin hareket hızını belirler
+  - **Dash Gücü**: Dash hareketi yapılırken alınan mesafeyi etkiler
+  - **Para Çarpanı**: Toplanan altınların değerini artırır
+- **Karakter Kilit Sistemi**: Karakterler oyun içi altın ile açılabilir
+
+### Silah Sistemi
+- **Farklı Silah Türleri**: Dört temel silah tipi bulunmaktadır:
+  - **Tabanca**: Standart silah, orta hasar, hızlı ateş etme (12 mermi kapasitesi)
+  - **Pompalı**: Yüksek hasar, yavaş ateş etme, patlama etkisi (6 mermi kapasitesi)
+  - **Tüfek**: Orta hasar, çok hızlı ateş etme, delici mermiler (30 mermi kapasitesi)
+  - **Lazer Silahı**: Yüksek hasar, hızlı ateş etme, delici etkili (20 mermi kapasitesi)
+- **Silah Mermileri**: Her silahın kendine özgü mermi tipi ve görsel efekti bulunur
+- **Mermi Özellikleri**: Mermiler farklı özelliklere sahiptir:
+  - **Hasar**: Düşmanlara verilen hasar miktarı
+  - **Hız**: Merminin hareket hızı
+  - **Boyut**: Merminin görsel boyutu
+  - **Renk**: Her silah tipine özgü mermi rengi
+  - **Delici Özellik**: Bazı mermiler düşmanları delip geçebilir
+  - **Patlayıcı Özellik**: Bazı mermiler çarptığında patlama etkisi yaratır
+- **Mermi Sistemi**: Oyuncu sınırlı mermi sayısına sahiptir ve oyun sırasında mermi kutuları toplayabilir
+- **Güçlendirilmiş Atış**: Özel güç-yükseltmesi ile geçici olarak daha güçlü mermiler elde edilebilir
 
 ### Düşman Sistemi
-- **Rastgele Düşman Oluşumu**: Oyun sırasında rastgele düşmanlar ortaya çıkar
-- **Farklı Düşman Tipleri**: Yavaş, hızlı, zıplayan, uçan gibi çeşitli düşman tipleri
-- **Zorluk Bazlı Düşman Dağılımı**: İleri seviyelerde daha zorlu düşmanlar
-- **Düşman Sağlık Sistemleri**: Farklı düşmanlar için değişken can miktarları
-- **Düşman Ödülleri**: Öldürülen düşmanlardan düşen ödüller (mermi, puan, can, vb.)
+- **Farklı Düşman Tipleri**: Beş temel düşman tipi bulunmaktadır:
+  - **Temel Düşman**: Basit ve zayıf, 1 can, saldırı yok (10 puan)
+  - **Zombi**: Orta güçte, 2 can, yakın mesafe saldırısı (15 puan)
+  - **Robot**: Dayanıklı, 3 can, yakın veya uzak mesafe saldırısı (20 puan)
+  - **Canavar**: Güçlü, 3 can, bazıları uçabilir veya zıplayabilir, farklı saldırı tipleri (25 puan)
+  - **Boss Düşman**: Çok güçlü, 10 can, sihirli saldırı, yüksek hasar (100 puan)
+- **Düşman Davranışları**:
+  - **Saldırı Tipleri**: Yakın dövüş, uzak mesafe, sihirli saldırılar
+  - **Hareket Yetenekleri**: Yürüme, koşma, zıplama, uçma
+  - **Agresiflik Seviyesi**: Düşmanın oyuncuyu tespit etme mesafesi ve saldırganlığı
+- **Seviye Tabanlı Düşman Güçlendirmesi**: Üst seviyelerde düşmanlar daha güçlü olur
+- **Boss Düşman Şansı**: Oyun seviyesi yükseldikçe Boss düşman gelme olasılığı artar
 
 ### Mermi Sistemi
-- **Sınırlı Mermi**: Oyuncu sınırlı sayıda mermiye sahiptir
-- **Mermi Toplayıcılar**: Oyun dünyasında bulunabilecek mermi kutuları
-- **Farklı Mermi Tipleri**: Normal, hızlı, patlayıcı gibi çeşitli mermi türleri
-- **Mermi Göstergesi**: Ekranda kalan mermi sayısını gösteren arayüz
+- **Sınırlı Mermi**: Oyuncu varsayılan olarak maksimum kapasitenin yarısıyla başlar (25 mermi)
+- **Mermi Toplayıcılar**: Düşmanları öldürünce veya mermi kutuları toplayarak mermi elde edilebilir
+- **Farklı Mermi Tipleri**: Her silah kendine özgü mermi tipi, rengi ve efekti kullanır
+- **Mermi Göstergesi**: Ekranda kalan mermi sayısı görsel olarak gösterilir
+- **Mermi Kutusu Oluşturma**: Düşmanların, özelliklerine göre farklı şanslarla mermi kutusu düşürme olasılığı vardır:
+  - Temel Düşman: %10
+  - Zombi: %20
+  - Robot: %50
+  - Canavar: %35
+  - Boss: %100 (Her zaman mermi kutusu düşürür)
 
 ### Güç-Yükseltmeler
 - **Mıknatıs**: Civardaki paraları oyuncuya çeker (8 saniye)
@@ -54,6 +103,8 @@
 - **Ekstra Can**: Oyuncuya bir can ekler (maksimum 3)
 - **Mermi Paketi**: Ekstra mermi sağlar
 - **Güçlü Ateş**: Geçici olarak daha güçlü mermiler (5 saniye)
+- **Güç-Yükseltme Görsel Göstergeleri**: Aktif güçler ekranda ikon ve kalan süreleriyle gösterilir
+- **Görsel Efektler**: Her güç-yükseltmenin kendine özgü aktivasyon ve devam eden efektleri vardır
 
 ### Toplanabilir Öğeler
 - **Altın**: Standart puan öğesi (%70 şansla)
@@ -84,13 +135,25 @@
 - **Özel Şık Engeller**: Farklı tipteki engeller için gradient ve parıltı efektleri içeren gelişmiş tasarımlar
 - **Doğal Renk Şeması**: Dağlar ve arkaplan için gerçekçi renk tonları
 - **Seviye Atlama Animasyonu**: Seviye atlandığında oyun içi ekranda özel animasyonlu bildirim
+- **Parçacık Efektleri**: Zıplama, koşma, çarpışma ve ateş etme sırasında parçacık efektleri
 
 ### Tema Sistemi
-- **Özelleştirilebilir Temalar**: Farklı renk şemaları ve görsel stiller
+- **Özelleştirilebilir Temalar**: 5 farklı oyun teması bulunmaktadır:
+  - **Classic** (Varsayılan ve ücretsiz): Mavi gökyüzü, yeşil zemin, kırmızı engeller
+  - **Night Mode** (1000 altın): Koyu mavi/siyah gökyüzü, mor zemin, efektler
+  - **Jungle** (2000 altın): Yeşil tonları, kahverengi engeller, orman efektleri
+  - **Lava World** (3000 altın): Kırmızı/turuncu gökyüzü, turuncu zemin, ateş efektleri
+  - **Winter Scene** (2500 altın): Beyaz/mavi gökyüzü, beyaz zemin, buz efektleri
+- **Tema Özellikleri**: Her tema şu özelliklerle tanımlanır:
+  - **Ana Renk**: Temanın baskın rengi
+  - **İkincil Renk**: Vurgular ve detaylar için kullanılan renk
+  - **Arkaplan Gradyanı**: Gökyüzü için 3 renkli gradyan
+  - **Engel Rengi**: Engeller için temel renk
+  - **Zemin Rengi**: Oyun zemini için renk
+  - **Oyuncu Rengi**: Karakter vurguları için renk
 - **Tema Mağazası**: Oyunda kazanılan altınlarla satın alınabilen temalar
 - **Aktif Tema Gösterimi**: Mevcut seçili temayı gösteren arayüz
 - **Tema Önizleme**: Satın almadan önce temaları önizleme imkanı
-- **Kilitli Temalar**: Oyun ilerleyişi ile açılan veya satın alınabilen temalar
 
 ### Seviye Sistemi
 - **Tecrübe Puanı (XP)**: Oyun içi puanların bir kısmı XP olarak kaydedilir
@@ -99,8 +162,6 @@
 - **Seviye Tabanlı Zorluk**: Üst seviyelerde daha hızlı ve zor oyun deneyimi
 - **Seviye Seçim Ekranı**: Açılan seviyeleri görüntüleme ve seçme imkanı
 - **Seviye Atlama Bildirimi**: Yeni seviyeye ulaşıldığında özel bildirim
-- **Seviye Bazlı Engeller**: Üst seviyelerde daha karmaşık engel tipleri
-- **Seviye Bazlı Düşmanlar**: Üst seviyelerde daha tehlikeli düşman çeşitleri
 
 ## Kullanıcı Arayüzü
 - **Puan Göstergesi**: Oyuncunun mevcut puanını gösterir
@@ -120,91 +181,6 @@
 - **Gradient ve Gölge Efektleri**: Modern görünüm için görsel zenginlikler
 - **XP ve Seviye Göstergesi**: Ana menüde mevcut oyuncu seviyesi ve XP durumu
 
-## Teknik Özellikler
-- **Flame Oyun Motoru**: 2D oyun geliştirme için Flutter'a entegre framework
-- **Çarpışma Sistemi**: Hassas çarpışma algılama ve tepkileri
-- **Performans Optimizasyonu**: Akıcı oyun deneyimi için optimize edilmiş kod
-- **Duyarlı Kullanıcı Girişi**: Basılı tutma, dokunma ve tepki verme için gelişmiş giriş sistemi
-- **Yüksek Skor Saklama**: Oyuncunun en yüksek skorunu kaydetme ve gösterme
-- **Responsive Tasarım**: Farklı ekran boyutlarına uyum sağlayan arayüz
-- **Dokunuş Hareketi Tanıma**: Kaydırma ve dokunma hareketleri için gelişmiş tanıma
-- **Obje Tipi Bazlı Çarpışma Kutuları**: Farklı engel ve düşman tipleri için optimize edilmiş çarpışma kutuları
-- **İlerleme Kayıt Sistemi**: Oyuncu seviyesi ve XP bilgisini yerel depolamada saklama
-- **Silah Fiziği**: Gerçekçi ateş etme mekanikleri ve mermi yolu fizikleri
-- **Düşman Yapay Zekası**: Basit düşman hareket ve saldırı algoritmaları
-- **Katmanlı Dünya Oluşturma**: Rastgele ve dengeli çok katmanlı dünya oluşturma
-- **Mermi Sayaç Sistemi**: Mermi sayısını takip eden ve görselleştiren sistem
-
-## Ses Sistemi
-- **Farklı Ses Efektleri**: Zıplama, çift zıplama, kayma, dash, ateş etme, mermi toplama, çarpışma ve güç-yükseltme aktivasyon sesleri
-- **Düşman Sesleri**: Düşman hareketleri, saldırıları ve ölüm sesleri
-- **Silah Sesleri**: Farklı silahlar için özel atış sesleri
-- **Müzik Parçaları**: Menü müziği, oyun içi müzik ve oyun sonu müziği
-- **Ses Ayarları**: Kullanıcıların müzik ve ses efektlerini ayrı ayrı açıp kapatabilmesi
-- **Dinamik Ses**: Oyun hızı arttıkça müzik temposunun hafifçe artması
-- **Kayıt Sistemi**: Kullanıcının ses tercihlerinin yerel depolamada saklanması
-- **Ses Önbelleği**: Performans iyileştirme için sık kullanılan seslerin önbelleğe alınması
-- **Kesintisiz Geçişler**: Farklı oyun durumları arasında müziğin kesintisiz geçişi
-
-## Parçacık Sistemi
-- **Temel Parçacık Sınıfı**: Hız ve renk gibi ortak özelliklere sahip temel parçacık yapısı
-- **Farklı Parçacık Türleri**: Dairesel, yıldız, konfeti, duman ve koşma parçacıkları
-- **Zıplama Efektleri**: Zıplama ve çift zıplama sırasında farklı görsel parçacık efektleri
-- **Ateş Etme Efektleri**: Silah ateşlendikçe namlu parlaması ve duman efektleri
-- **Mermi İzi Efektleri**: Mermilerin çarptığı yüzeylerde iz ve parçacık efektleri
-- **Düşman Vurulma Efektleri**: Düşmanlar vurulduğunda kan veya patlama efektleri
-- **Düşman Ölüm Efektleri**: Düşmanlar öldüğünde özel parçacık efektleri
-- **Toplanabilir Efektleri**: Farklı toplanabilir nesneler için özel renkli parçacık patlamaları
-- **Çarpışma Efektleri**: Engele çarpıldığında kırmızı patlama ve duman parçacıkları
-- **Dash Hareket Çizgileri**: Dash sırasında hareket çizgilerini simgeleyen parçacıklar
-- **Kayma İzi**: Kayma hareketi sırasında zemin üzerinde toz efekti
-- **Konfeti Patlamaları**: Seviye atlandığında ve yüksek skor kırıldığında konfeti patlaması
-- **Oyun Sonu Efektleri**: Oyun bitiminde özel efektler ve parçacık efektleri
-- **Koşma Tozu**: Koşma sırasında karakterin arkasında hafif toz efekti
-- **Yıldız Patlamaları**: Güç yükseltmeleri ve özel olaylarda renkli yıldız patlaması
-- **Dinamik Boyutlandırma**: Parçacıkların zamanla solması ve küçülmesi
-- **Performans Optimizasyonu**: Maksimum parçacık sınırı ile düşük sistemlerde performans garantisi
-
-## Performans Optimizasyonları
-- **Görsel Öğe Sınırlaması**: Ekrandaki grafik öğelerinin sayısı optimize edildi
-- **Lazy Initialization**: Nesneler sadece ihtiyaç duyulduğunda oluşturulur
-- **Render Optimizasyonu**: Ekran dışındaki nesneler render edilmiyor
-- **Basitleştirilmiş Şekiller**: Karmaşık eğriler yerine basit çizimler kullanılıyor
-- **Önbelleğe Alınmış Çizimler**: Sık kullanılan şekiller önceden hazırlanıyor
-- **Obje Havuzu**: Nesnelerin yeniden kullanımı için optimize edilmiş sistem
-- **Detay Seviyesi Kontrolü**: Uzaktaki veya önemsiz nesnelerde daha az detay
-- **Çarpışma Kutusu Optimizasyonu**: Basitleştirilmiş çarpışma algılama
-- **Görsel Efekt Yönetimi**: Sadece görünür olduğunda efekt render etme
-- **Dağ ve Bulut Sayısı Azaltma**: Benzer görsel etkiyi daha az nesneyle sağlama
-- **3B Efektleri Optimizasyonu**: Performans için hafifletilmiş 3B görünümlü 2D çizimler
-- **Shader ve Gradient Optimizasyonu**: Daha verimli shader kullanımı
-- **Çimen Detaylarının Azaltılması**: Minimum çimen öğesiyle maksimum görsel etki
-- **Seviye Bazlı Engel Optimizasyonu**: Farklı zorluk seviyelerinde optimum engel sayısı
-- **Düşman Sayısı Kontrolü**: Performans düşmemesi için ekranda maksimum düşman sayısı sınırlaması
-- **Mermi Fizik Optimizasyonu**: Basitleştirilmiş mermi fizik hesaplamaları
-
-## Gerçekleştirilmiş Geliştirmeler
-- **İnsan Karakteri**: Elinde silah taşıyan insan karakteri eklendi
-- **Düşman Sistemi**: Rastgele ortaya çıkan düşmanlar
-- **Can Sistemi**: Düşmanlara ve engellere temas edince can azalması
-- **Katmanlı Oyun Dünyası**: Zıplayarak geçilebilen platformlar
-- **Ateş Etme Mekanikleri**: Düşmanları öldürmek için ateş etme
-- **Mermi Sistemi**: Sınırlı mermi ve mermi toplama mekanikleri
-- **Tema Mağazası**: Oyun içi para ile satın alınabilir farklı temalar
-- **Özel Engeller**: Görsel olarak zenginleştirilmiş, efekt ve animasyonlu engeller
-- **Yüksek Skor Kaydı**: Yerel depolamada saklanan en yüksek puan sistemi
-- **Responsive Arayüz**: Farklı ekran boyutlarına tam uyumlu kullanıcı arayüzü
-- **Engel Çarpışma İyileştirmeleri**: Engel tiplerine özel çarpışma kutuları
-- **Performans Optimizasyonları**: FPS artıran kapsamlı grafik ve render iyileştirmeleri
-- **Chrome Basılı Tutma Düzeltmesi**: Web tarayıcılarında oyun kontrollerinin optimizasyonu
-- **Görsel Dil Değişimi**: Arayüzün İngilizce'den Türkçe'ye çevrilmesi
-- **Oyun Sonu İyileştirmeleri**: Ana menüye dönüş ve yeniden oynama seçenekleri
-- **Seviye Sistemi**: XP toplama ve seviyelerin kilidi açılması sistemi
-- **Seviye Seçim Ekranı**: Açılmış seviyeler arasında seçim yapabilme
-- **Ses Sistemi**: Oyun müzikleri ve efektleri tam entegrasyonu
-- **Ayarlar Menüsü**: Ses ve müzik açma/kapama kontrolleri
-- **Özel Efektler ve Parçacık Sistemleri**: Oyun içindeki olaylara göre dinamik parçacık patlamaları, yıldız, konfeti, duman efektleri ve koşma sırasında ayak izleri
-
 ## Seviye Sistemi Detayları
 - **Seviye 1**: Acemi Koşucu - Standart oyun hızı, yalnızca temel engeller ve zayıf düşmanlar
 - **Seviye 2**: Amatör Atlet - %20 daha fazla puan, %20 daha hızlı oyun, orta düzeyde düşmanlar
@@ -213,43 +189,80 @@
 - **Seviye 5**: Engel Ustası - %100 daha fazla puan, tüm engel tipleri ve düşman tipleri aktif
 - **Seviye 6**: Efsane Koşucu - %150 daha fazla puan, maksimum zorluk ve boss düşmanlar
 
-## Gelecek Geliştirmeler
-- **Şerit Değiştirme Sistemi**: Sağa/sola kaydırarak şerit değiştirebilme
-- **Daha Geniş Silah Çeşitliliği**: Farklı silah tipleri ve güçlendirmeleri
-- **Boss Düşmanlar**: Belirli aralıklarla ortaya çıkan özel güçlü düşmanlar
-- **Karakter Özelleştirme**: Farklı karakterler ve görünümler
-- **Seviye Sistemi Genişletme**: Daha fazla seviye ve daha özel ödüller
-- **Ses Efektleri ve Müzik Genişletme**: Farklı seviyelere özel müzik ve efektler
-- **Yüksek Skor Tablosu**: Çevrimiçi yüksek skor rekabeti
-- **Başarılar ve Ödüller**: Oyuncuya motivasyon sağlayacak hedefler
-- **İlerleme Sistemi**: Oyuncu becerilerinin gelişimine dayalı açılan özellikler
-- **Görev Sistemi**: Günlük ve haftalık tamamlanabilir görevler
-- **Aşamalı Zorluk Sistemi**: Oyun ilerledikçe açılan yeni engel ve düşman tipleri
-- **Online Çok Oyunculu Mod**: Diğer oyuncularla yarışma imkanı
+## Reklam Sistemi
+- **Sahte Reklam Servisi**: Geçici bir çözüm olarak uygulanmış basit reklam servisi
+- **Ara Reklam**: Oyun bitiminde gösterilen ara reklam
+- **Ödüllü Reklam**: Ekstra ödül karşılığında izlenebilen reklam
+- **Reklam Sayacı**: Reklam gösterimi için oyun sayısını takip eden sistem
+- **Gelecek Entegrasyon**: Google AdMob veya başka bir reklam platformu entegrasyonu için hazırlık
+
+## Uygulama Mimarisi ve Yapısı
+
+Projemiz "Clean Architecture" prensiplerini takip ederek oluşturulmuştur ve şu ana modüllerden oluşmaktadır:
+
+### Proje Klasör Yapısı
+- **lib/**: Ana uygulama kodu
+  - **main.dart**: Uygulamanın giriş noktası
+  - **models/**: Veri modelleri ve state yönetimi
+  - **domain/**: İş mantığı katmanı
+    - **entities/**: Temel oyun varlıkları (karakterler, engeller, düşmanlar)
+  - **presentation/**: Kullanıcı arayüzü katmanı
+    - **pages/**: Ana oyun ekranları
+    - **components/**: Oyun bileşenleri
+      - **player/**: Oyuncu karakteri bileşenleri
+      - **enemies/**: Düşman bileşenleri
+      - **obstacles/**: Engel bileşenleri
+      - **collectibles/**: Toplanabilir öğe bileşenleri
+      - **background/**: Arkaplan bileşenleri
+      - **particles/**: Parçacık efekt bileşenleri
+      - **weapon/**: Silah ve mermi bileşenleri
+      - **platforms/**: Platform bileşenleri
+    - **widgets/**: Yeniden kullanılabilir UI bileşenleri
+  - **services/**: Harici servisler (ses, reklam, vb.)
+  - **utils/**: Yardımcı fonksiyonlar ve sınıflar
+
+### Veri Yönetimi
+- **Provider Paketi**: State yönetimi için kullanılmaktadır
+  - **GameState**: Oyun durumu, skorlar, seviyeler ve temalar burada yönetilir
+- **Shared Preferences**: Oyun verileri ve ayarlar için yerel depolama
+  - **Yüksek Skor**: En yüksek puan yerel olarak saklanır
+  - **Açılan Seviyeler**: Kilidi açılan seviyeler saklanır
+  - **Açılan Temalar**: Satın alınan temalar saklanır
+  - **Açılan Karakterler**: Satın alınan karakterler saklanır
+  - **Altın Miktarı**: Toplam altın miktarı saklanır
+
+### Oyun Motoru
+- **Flame Framework**: Flutter üzerinde 2D oyun geliştirme için kullanılmaktadır
+- **Flame Collision Detection**: Çarpışma tespiti için uygulanmıştır
+- **Flame Components**: Oyun öğeleri için kullanılmaktadır
+- **Flame Timer**: Zamanlayıcı ve döngüsel işlemler için kullanılmaktadır
 
 ## Test Sonuçları
 - **Performans**: Optimizasyonlar sonrası tüm desteklenen platformlarda 60 FPS'nin üzerinde çalışma
 - **Kullanıcı Geri Bildirimi**: Yeni insan karakteri, silah sistemi ve çok katmanlı oyun dünyası beğeni topladı
 - **Dengeli Zorluk Seviyesi**: Oyun zamanla zorlaşırken adil bir öğrenme eğrisi sunuyor
-- **Silah Mekanikleri**: Ateş etme ve düşman öldürme mekanikleri akıcı ve tatmin edici
-- **Düşman Sistemi**: Rastgele düşman oluşturma sistemi test edildi ve dengeli bulundu
-- **Mermi Sistemi**: Sınırlı mermi ve mermi toplama mekanikleri iyi dengelenmiş bulundu
 - **Çapraz Platform Uyumluluk**: Mobil, web ve masaüstü platformlarda sorunsuz çalışma
-- **Tarayıcı Uyumluluğu**: Chrome, Firefox ve Safari'de test edildi ve optimize edildi
-- **Görsel Performans**: Optimize edilen arka plan ve engel tasarımları ile daha iyi görsel deneyim
-- **Responsive Tasarım**: Farklı ekran boyutlarında sorunsuz ölçekleme
-- **Seviye Sistemi Testi**: XP kazanma ve seviye atlama mekanikleri düzgün çalışıyor
-- **Ses Sistemi Testi**: Tüm ses efektleri ve müzikler tüm platformlarda gecikme olmadan çalışıyor
-- **Ayarlar Menüsü**: Ses ve müzik ayarları düzgün kaydediliyor ve uygulanıyor
-- **Parçacık Sistemi Testi**: Farklı cihazlarda parçacık efektleri performans düşüşü olmadan akıcı şekilde çalışıyor
 
-## Teknik Notlar
-- **Flutter Versiyonu**: 3.0.0+
-- **Flame Versiyonu**: 1.28.0
-- **Provider Versiyonu**: 6.0.5
-- **Dart SDK Versiyonu**: '>=3.0.0 <4.0.0'
-- **SharedPreferences Versiyonu**: 2.2.1
-- **AudioPlayers Versiyonu**: 6.4.0
-- **Flutter Cube Versiyonu**: 0.1.1
-- **Just Audio Versiyonu**: 0.9.36
-- **Minimum API Gereksinimleri**: Android API Level 16+, iOS 9.0+
+## Gelecek Geliştirmeler
+- **Çoklu Dil Desteği**: Farklı dillerde oyun arayüzü
+- **Online Skor Tablosu**: Firebase veya başka bir hizmet kullanarak çevrimiçi skor rekabeti
+- **Başarı Sistemi**: Oyuncuların açabileceği başarılar ve ödüller
+- **Daha Fazla Karakter**: Yeni oynanabilir karakterler ve özel yetenekler
+- **Günlük Görevler**: Daha fazla oyuncu katılımı için günlük hedefler
+- **Boss Düşmanlar Geliştirme**: Özel aralıklarla ortaya çıkan, daha karmaşık davranışlara sahip düşmanlar
+- **Sosyal Medya Entegrasyonu**: Başarıları ve yüksek skorları paylaşma özelliği
+- **Ek Güç-Yükseltmeler**: Yeni güç-yükseltme tipleri
+- **Eşyalar ve Yükseltmeler Mağazası**: Daha fazla özelleştirme ve strateji için
+- **Google Play Games / Game Center Entegrasyonu**: Platform özgü oyun hizmetleri
+
+## Son Güncelleme Notları (Mayıs, 2024)
+- Ses sistemi ve reklam servisi entegrasyonu tamamlandı
+- Performans optimizasyonları yapıldı
+- Tema mağazası genişletildi
+- Görsel efektler iyileştirildi
+- Seviye sistemi düzenlendi
+- Karakter kontrolleri daha hassas hale getirildi
+- Silah ve mermi sistemi geliştirildi
+- Düşman yapay zekası iyileştirildi
+- Büyük ve küçük ekranlarda responsiveness iyileştirildi
+- Flutter ve Flame framework'ünün son sürümlerine güncelleme yapıldı
