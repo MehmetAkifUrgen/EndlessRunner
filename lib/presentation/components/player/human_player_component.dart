@@ -74,6 +74,16 @@ class HumanPlayerComponent extends PositionComponent
   // Oyun durumu
   PlayerState state = PlayerState.running;
 
+  // Silah güçlendirme metodu
+  void powerUpWeapon(double duration) {
+    if (duration <= 0) {
+      isPoweredUp = false;
+    } else {
+      isPoweredUp = true;
+      poweredUpTimer = duration;
+    }
+  }
+
   HumanPlayerComponent({
     required Vector2 position,
     required this.character,
@@ -359,54 +369,134 @@ class HumanPlayerComponent extends PositionComponent
 
   // Ateş etme işlemi
   void shoot() {
-    // Kılıç zaten sallanıyorsa bir şey yapma
-    if (isSwingingBlade) return;
+    // Karakterin silah tipini kontrol et
+    final weaponType = character.attributes['weaponType'] as String? ?? 'sword';
 
-    // Kılıç sallama başlat
-    isSwingingBlade = true;
-    swingTimer = 0.0;
-    state = PlayerState.shooting;
+    // Silah tipine göre ateş et
+    switch (weaponType) {
+      case 'bow':
+        // Kızılderili karakteri - ok atma
+        if (isSwingingBlade) return;
 
-    // Ses efekti - kaldırıldı
-    // gameRef.audioService.playSfx('sword_swing');
+        // Ok atma başlat
+        isSwingingBlade = true;
+        swingTimer = 0.0;
+        state = PlayerState.shooting;
 
-    // Kılıç efekti oluştur (namlu parlaması yerine)
+        // Ok oluştur ve fırlat
+        _shootArrow();
+        break;
+
+      case 'axe':
+      case 'sword':
+      default:
+        // Kılıç veya balta sallama
+        if (isSwingingBlade) return;
+
+        // Kılıç sallama başlat
+        isSwingingBlade = true;
+        swingTimer = 0.0;
+        state = PlayerState.shooting;
+
+        // Efekt oluştur
+        if (gameRef.particleSystem != null) {
+          _createSwordSlashEffect();
+        }
+        break;
+    }
+  }
+
+  // Ok atma metodu
+  void _shootArrow() {
+    // gameRef null kontrolü ekleyelim
+    if (gameRef == null) {
+      print("HATA: gameRef null - ok atılamıyor");
+      return;
+    }
+
+    // Okun çıkış konumunu hesapla (karakterin ön tarafından)
+    final arrowPosition = Vector2(
+      position.x + size.x * 0.6, // Okun başlangıç pozisyonu
+      position.y - size.y * 0.5, // Karakter boyunun üst kısmı
+    );
+
+    // Ok yönünü belirle (sağa doğru)
+    final arrowDirection = Vector2(1, 0);
+
+    // Okun hızını hesapla
+    double arrowSpeed = 350.0; // Varsayılan ok hızı
+
+    // Karakterin range değeri varsa oku daha hızlı/uzağa atsın
+    final range = character.attributes['range'] as double? ?? 1.0;
+    arrowSpeed *= range;
+
+    // Ok oluştur ve oyuna ekle
+    final arrow = BulletComponent(
+      bullet: Bullet(
+        damage: 1.0,
+        speed: arrowSpeed,
+        size: 20.0,
+        color: Colors.brown,
+      ),
+      position: arrowPosition,
+      direction: arrowDirection,
+    );
+
+    // Oku oyuna ekle
+    gameRef.add(arrow);
+
+    // Ok atma efekti
     if (gameRef.particleSystem != null) {
-      _createSwordSlashEffect();
+      _createArrowTrailEffect(arrowPosition);
     }
   }
 
-  // Yeniden doldurma işlemi
-  void reload() {
-    if (!isReloading && ammoSystem.currentAmmo < currentWeapon.ammoCapacity) {
-      isReloading = true;
-      reloadTimer = currentWeapon.reloadTime;
+  // Ok izi efekti
+  void _createArrowTrailEffect(Vector2 position) {
+    gameRef.particleSystem?.emit(
+      count: 10,
+      position: position,
+      colors: [Colors.brown.shade300, Colors.brown.shade600],
+      size: Vector2(5, 5),
+      speed: 20,
+      lifespan: 0.2,
+    );
+  }
 
-      // Ses efekti - kaldırıldı
-      // gameRef.audioService.playSfx('reload');
+  // Kılıç çarpışma kontrolü
+  void _checkBladeCollision() {
+    if (!isSwingingBlade) return;
+
+    // Silah tipini kontrol et
+    final weaponType = character.attributes['weaponType'] as String? ?? 'sword';
+
+    // Silaha göre menzil ve hasar hesapla
+    double range = swingRange;
+    double damageMultiplier = 1.0;
+
+    if (weaponType == 'axe') {
+      // Balta için değerler
+      range *= 0.8; // Balta daha kısa menzilli
+      damageMultiplier = character.attributes['damage'] as double? ?? 1.5;
     }
-  }
 
-  // Güçlendirilmiş mermi modunu aç
-  void powerUpWeapon(double duration) {
-    isPoweredUp = true;
-    poweredUpTimer = duration;
-  }
+    // Silahın ucunun pozisyonunu hesapla (karakterin önünde)
+    final bladePositionX = position.x + size.x * 0.8;
+    final bladePositionY = position.y - size.y * 0.5;
+    final bladePosition = Vector2(bladePositionX, bladePositionY);
 
-  // Silahı değiştir
-  void changeWeapon(WeaponType type) {
-    currentWeapon = Weapon.fromType(type);
+    // Menzil içindeki düşmanları bul
+    for (final enemy in gameRef.enemies) {
+      // Düşmanla silah arasındaki mesafeyi hesapla
+      final distance = enemy.position.distanceTo(bladePosition);
 
-    // Ses efekti - kaldırıldı
-    // gameRef.audioService.playSfx('weapon_change');
-  }
-
-  // Mermi ekle
-  void addAmmo(int amount) {
-    ammoSystem.reload(amount);
-
-    // Ses efekti - kaldırıldı
-    // gameRef.audioService.playSfx('ammo_pickup');
+      // Eğer düşman silah menziline girdiyse hasar ver
+      if (distance < range) {
+        final damage =
+            isPoweredUp ? 3.0 * damageMultiplier : 1.0 * damageMultiplier;
+        enemy.hit(damage);
+      }
+    }
   }
 
   // Kılıç sallama parçacık efekti
@@ -417,38 +507,318 @@ class HumanPlayerComponent extends PositionComponent
       position.y - size.y * 0.5, // Karakter boyunun ortası
     );
 
-    // Kılıç efekti parçacıklarını oluştur
-    gameRef.particleSystem?.emit(
-      count: 15,
-      position: swordPosition,
-      colors: [Colors.white, Colors.lightBlue.shade200, Colors.blue.shade600],
-      size: Vector2(10, 10),
-      speed: 80,
-      lifespan: 0.3,
-    );
+    // Silah tipini kontrol et
+    final weaponType = character.attributes['weaponType'] as String? ?? 'sword';
+
+    // Silah tipine göre farklı efekt oluştur
+    if (weaponType == 'axe') {
+      // Balta efekti - turuncu/kırmızı
+      gameRef.particleSystem?.emit(
+        count: 15,
+        position: swordPosition,
+        colors: [
+          Colors.orange.shade200,
+          Colors.red.shade600,
+          Colors.orange.shade400
+        ],
+        size: Vector2(12.0, 12.0),
+        speed: 90.0,
+        lifespan: 0.3,
+      );
+    } else {
+      // Kılıç efekti - beyaz/mavi
+      gameRef.particleSystem?.emit(
+        count: 15,
+        position: swordPosition,
+        colors: [Colors.white, Colors.lightBlue.shade200, Colors.blue.shade600],
+        size: Vector2(10.0, 10.0),
+        speed: 80.0,
+        lifespan: 0.3,
+      );
+    }
   }
 
-  // Kılıç çarpışma kontrolü
-  void _checkBladeCollision() {
-    if (!isSwingingBlade) return;
+  // Katana kılıcı çizim metodu
+  void _drawKatana(
+      Canvas canvas, Vector2 size, double armAngle, bool isSwinging) {
+    // Silah tipini kontrol et
+    final weaponType = character.attributes['weaponType'] as String? ?? 'sword';
 
-    // Kılıcın ucunun pozisyonunu hesapla (karakterin önünde)
-    final bladePositionX = position.x + size.x * 0.8;
-    final bladePositionY = position.y - size.y * 0.5;
-    final bladePosition = Vector2(bladePositionX, bladePositionY);
+    switch (weaponType) {
+      case 'bow':
+        _drawBow(canvas, size, armAngle, isSwinging);
+        break;
+      case 'axe':
+        _drawAxe(canvas, size, armAngle, isSwinging);
+        break;
+      case 'sword':
+      default:
+        _drawSword(canvas, size, armAngle, isSwinging);
+        break;
+    }
+  }
 
-    // Kılıç menzili içindeki düşmanları bul
-    for (final enemy in gameRef.enemies) {
-      // Düşmanla kılıç arasındaki mesafeyi hesapla
-      final distance = enemy.position.distanceTo(bladePosition);
+  // Kılıç çizim metodu
+  void _drawSword(
+      Canvas canvas, Vector2 size, double armAngle, bool isSwinging) {
+    // Kılıcın başlangıç pozisyonu (sağ elin ucu)
+    double handleX, handleY;
 
-      // Eğer düşman kılıç menziline girdiyse hasar ver
-      if (distance < swingRange) {
-        final damage =
-            isPoweredUp ? 3.0 : 1.0; // Güçlendirilmiş ise daha fazla hasar
-        enemy.hit(damage);
+    if (isSwinging) {
+      // Sallama sırasında kılıcın pozisyonu kola bağlı
+      double elbowX =
+          size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
+      double elbowY =
+          size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
+      handleX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      handleY = elbowY + math.sin(armAngle) * size.x * 0.2;
+    } else {
+      // Normal duruşta kılıcın pozisyonu
+      handleX = size.x * 0.75;
+      handleY = size.y * 0.4;
+    }
+
+    // Kılıç açısı
+    double swordAngle = isSwinging ? armAngle : math.pi * 0.1; // Hafif eğimli
+
+    // Kılıç uzunluğu ve genişliği
+    final bladeLength = size.x * 0.6; // Uzun bir katana
+    final bladeWidth = size.x * 0.03; // İnce bir bıçak
+
+    // Kılıç kabzası (handle)
+    final handlePaint = Paint()..color = Colors.brown.shade900;
+    final handleLength = size.x * 0.15;
+    final handleWidth = size.x * 0.04;
+
+    // Kılıç bıçağı (blade)
+    final bladePaint = Paint()..color = Colors.grey.shade300;
+
+    // Sallama animasyonu sırasında kılıç parıltısı
+    if (isSwinging) {
+      bladePaint.maskFilter = MaskFilter.blur(BlurStyle.outer, 2.0);
+      if (isPoweredUp) {
+        bladePaint.color =
+            Colors.lightBlue.shade200; // Güçlendirilmiş kılıç rengi
       }
     }
+
+    // Kabza ucundaki tutacağı çiz (tsuba)
+    final tsubaPaint = Paint()..color = Colors.black;
+    canvas.drawCircle(Offset(handleX, handleY), handleWidth * 1.5, tsubaPaint);
+
+    // Kabzayı çiz
+    canvas.save();
+    canvas.translate(handleX, handleY);
+    canvas.rotate(swordAngle + math.pi); // Kabza açısı (kılıcın tersi)
+    canvas.drawRect(
+        Rect.fromLTWH(
+            -handleLength, -handleWidth / 2, handleLength, handleWidth),
+        handlePaint);
+    canvas.restore();
+
+    // Bıçağı çiz
+    canvas.save();
+    canvas.translate(handleX, handleY);
+    canvas.rotate(swordAngle);
+
+    // Kılıç bıçağı
+    canvas.drawRect(
+        Rect.fromLTWH(0, -bladeWidth / 2, bladeLength, bladeWidth), bladePaint);
+
+    // Kılıç ucu (keskin köşe)
+    final bladeTipPath = Path();
+    bladeTipPath.moveTo(bladeLength, -bladeWidth / 2);
+    bladeTipPath.lineTo(bladeLength + bladeWidth * 3, 0);
+    bladeTipPath.lineTo(bladeLength, bladeWidth / 2);
+    bladeTipPath.close();
+    canvas.drawPath(bladeTipPath, bladePaint);
+
+    // Güçlendirilmiş kılıç için parıltı efekti
+    if (isPoweredUp) {
+      final glowPaint = Paint()
+        ..color = Colors.blue.withOpacity(0.3)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8.0);
+
+      canvas.drawRect(
+          Rect.fromLTWH(0, -bladeWidth, bladeLength, bladeWidth * 2),
+          glowPaint);
+    }
+
+    canvas.restore();
+  }
+
+  // Balta çizim metodu
+  void _drawAxe(Canvas canvas, Vector2 size, double armAngle, bool isSwinging) {
+    // Baltanın başlangıç pozisyonu (sağ elin ucu)
+    double handleX, handleY;
+
+    if (isSwinging) {
+      // Sallama sırasında baltanın pozisyonu kola bağlı
+      double elbowX =
+          size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
+      double elbowY =
+          size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
+      handleX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      handleY = elbowY + math.sin(armAngle) * size.x * 0.2;
+    } else {
+      // Normal duruşta baltanın pozisyonu
+      handleX = size.x * 0.75;
+      handleY = size.y * 0.4;
+    }
+
+    // Balta açısı
+    double axeAngle = isSwinging ? armAngle : math.pi * 0.1; // Hafif eğimli
+
+    // Balta sapı
+    final handlePaint = Paint()..color = Colors.brown.shade700;
+    final handleLength = size.x * 0.5; // Uzun bir sap
+    final handleWidth = size.x * 0.04; // Kalınlık
+
+    // Balta başı
+    final bladePaint = Paint()..color = Colors.grey.shade600;
+
+    // Sallama animasyonu sırasında balta parıltısı
+    if (isSwinging) {
+      bladePaint.maskFilter = MaskFilter.blur(BlurStyle.outer, 2.0);
+      if (isPoweredUp) {
+        bladePaint.color = Colors.orange.shade300; // Güçlendirilmiş balta rengi
+      }
+    }
+
+    // Sapı çiz
+    canvas.save();
+    canvas.translate(handleX, handleY);
+    canvas.rotate(axeAngle);
+    canvas.drawRect(
+        Rect.fromLTWH(0, -handleWidth / 2, handleLength, handleWidth),
+        handlePaint);
+
+    // Balta başını çiz
+    final axeHeadPath = Path();
+    final axeHeadSize = size.x * 0.2;
+
+    // Balta başının pozisyonu
+    final double axeHeadX = handleLength - axeHeadSize * 0.3;
+    final double axeHeadY = 0.0;
+
+    // Balta başı şekli
+    axeHeadPath.moveTo(axeHeadX, axeHeadY - handleWidth / 2);
+    axeHeadPath.lineTo(axeHeadX + axeHeadSize * 0.3, axeHeadY - axeHeadSize);
+    axeHeadPath.lineTo(axeHeadX + axeHeadSize, axeHeadY - axeHeadSize * 0.5);
+    axeHeadPath.lineTo(axeHeadX + axeHeadSize, axeHeadY + axeHeadSize * 0.5);
+    axeHeadPath.lineTo(axeHeadX + axeHeadSize * 0.3, axeHeadY + axeHeadSize);
+    axeHeadPath.lineTo(axeHeadX, axeHeadY + handleWidth / 2);
+    axeHeadPath.close();
+
+    canvas.drawPath(axeHeadPath, bladePaint);
+
+    // Balta ortasındaki metal detay
+    final axeDetailPaint = Paint()..color = Colors.grey.shade400;
+    canvas.drawCircle(Offset(axeHeadX, axeHeadY),
+        (handleWidth * 0.8).toDouble(), axeDetailPaint);
+
+    // Güçlendirilmiş balta için parıltı efekti
+    if (isPoweredUp) {
+      final glowPaint = Paint()
+        ..color = Colors.orange.withOpacity(0.3)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8.0);
+
+      canvas.drawPath(axeHeadPath, glowPaint);
+    }
+
+    canvas.restore();
+  }
+
+  // Yay çizim metodu
+  void _drawBow(Canvas canvas, Vector2 size, double armAngle, bool isSwinging) {
+    // Yayın başlangıç pozisyonu (sağ elin ucu)
+    double handleX, handleY;
+
+    if (isSwinging) {
+      // Ok atma sırasında yayın pozisyonu kola bağlı
+      double elbowX =
+          size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
+      double elbowY =
+          size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
+      handleX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      handleY = elbowY + math.sin(armAngle) * size.x * 0.2;
+    } else {
+      // Normal duruşta yayın pozisyonu
+      handleX = size.x * 0.75;
+      handleY = size.y * 0.4;
+    }
+
+    // Yay açısı
+    double bowAngle = isSwinging ? armAngle : math.pi * 0.1; // Hafif eğimli
+
+    // Başlangıç pozisyonunu ayarla
+    canvas.save();
+    canvas.translate(handleX, handleY);
+    canvas.rotate(bowAngle);
+
+    // Yay çerçevesi
+    final bowPaint = Paint()
+      ..color = Colors.brown.shade800
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.x * 0.02;
+
+    // Yay yüksekliği ve genişliği
+    final bowHeight = size.x * 0.4;
+    final bowCurve =
+        isSwinging ? size.x * 0.05 : size.x * 0.15; // Gerildiğinde daha düz
+
+    // Yay çiz
+    final bowPath = Path();
+    bowPath.moveTo(0, -bowHeight / 2); // Üst uç
+    bowPath.quadraticBezierTo(
+        bowCurve, 0, 0, bowHeight / 2); // Alt uca kadar kavis
+    canvas.drawPath(bowPath, bowPaint);
+
+    // Yay ipi
+    final stringPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.0;
+
+    canvas.drawLine(
+        Offset(0, -bowHeight / 2), Offset(0, bowHeight / 2), stringPaint);
+
+    // Ok atma anında ok çiz
+    if (isSwinging) {
+      // Ok
+      final arrowPaint = Paint()..color = Colors.brown.shade600;
+      // Ok gövdesi
+      canvas.drawRect(
+          Rect.fromLTWH(0, -size.x * 0.01, size.x * 0.3, size.x * 0.02),
+          arrowPaint);
+
+      // Ok ucu
+      final arrowTipPath = Path();
+      arrowTipPath.moveTo(size.x * 0.3, -size.x * 0.03);
+      arrowTipPath.lineTo(size.x * 0.4, 0);
+      arrowTipPath.lineTo(size.x * 0.3, size.x * 0.03);
+      arrowTipPath.close();
+      canvas.drawPath(arrowTipPath, arrowPaint);
+
+      // Ok tüyleri
+      final featherPaint = Paint()..color = Colors.red.shade700;
+      canvas.drawRect(
+          Rect.fromLTWH(
+              size.x * 0.05, -size.x * 0.04, size.x * 0.03, size.x * 0.08),
+          featherPaint);
+    }
+
+    // Güçlendirilmiş yay için parıltı efekti
+    if (isPoweredUp) {
+      final glowPaint = Paint()
+        ..color = Colors.green.withOpacity(0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.x * 0.03
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8.0);
+
+      canvas.drawPath(bowPath, glowPaint);
+    }
+
+    canvas.restore();
   }
 
   // Durumu güncelle ve animasyon için kullan
@@ -476,6 +846,30 @@ class HumanPlayerComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    // Karakter ID'sine göre uygun render fonksiyonunu çağır
+    final characterId = character.id;
+
+    switch (characterId) {
+      case 'ninja':
+        _renderNinja(canvas);
+        break;
+      case 'janissary':
+        _renderJanissary(canvas);
+        break;
+      case 'viking':
+        _renderViking(canvas);
+        break;
+      case 'indian':
+        _renderIndian(canvas);
+        break;
+      default:
+        _renderNinja(canvas); // Varsayılan olarak ninja çiz
+        break;
+    }
+  }
+
+  // Ninja karakterini çizme fonksiyonu
+  void _renderNinja(Canvas canvas) {
     canvas.save();
 
     // Koşma animasyonu için zaman hesaplama
@@ -503,8 +897,8 @@ class HumanPlayerComponent extends PositionComponent
         shadowPaint);
 
     // Renk şeması - karakter renklerini değişkenlere atayarak daha kolay güncelleme
-    final ninjaMainColor = Colors.black;
-    final ninjaAccentColor = Colors.red.shade800;
+    final ninjaMainColor = primaryColor; // Karakter rengini kullan
+    final ninjaAccentColor = secondaryColor; // İkincil rengi kullan
     final ninjaSkinColor = Color(0xFFE6C8A9);
 
     // ---- VÜCUT BÖLÜMLERİ ----
@@ -692,90 +1086,838 @@ class HumanPlayerComponent extends PositionComponent
     canvas.restore();
   }
 
-  // Katana kılıcı çizim metodu
-  void _drawKatana(
-      Canvas canvas, Vector2 size, double armAngle, bool isSwinging) {
-    // Kılıcın başlangıç pozisyonu (sağ elin ucu)
-    double handleX, handleY;
+  // Yeniçeri karakterini çizme fonksiyonu
+  void _renderJanissary(Canvas canvas) {
+    canvas.save();
 
-    if (isSwinging) {
-      // Sallama sırasında kılıcın pozisyonu kola bağlı
+    // Koşma animasyonu için zaman hesaplama
+    final runningTime = DateTime.now().millisecondsSinceEpoch / 150;
+    final legOffset =
+        state == PlayerState.running ? math.sin(runningTime) * 12 : 0;
+    final armOffset =
+        state == PlayerState.running ? math.cos(runningTime) * 10 : 0;
+    final isJumpingOrFalling = state == PlayerState.jumping ||
+        state == PlayerState.doubleJumping ||
+        state == PlayerState.falling;
+
+    // ------ YENİÇERİ KARAKTERİ ÇİZİMİ ------
+
+    // Gölge efekti
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
+
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(size.x * 0.5, size.y * 0.97),
+            width: size.x * 0.6,
+            height: size.y * 0.1),
+        shadowPaint);
+
+    // Renk şeması
+    final bodyColor = Color(0xFF9E0B0F); // Yeniçeri kırmızı üniforma
+    final accentColor = Color(0xFFFFD700); // Altın sarısı detaylar
+    final skinColor = Color(0xFFE6C8A9); // Ten rengi
+
+    // ---- VÜCUT BÖLÜMLERİ ----
+
+    // Bacaklar - koşma animasyonlu
+    final legPaint = Paint()..color = Colors.white; // Beyaz pantolon
+
+    // Sol bacak
+    final leftLegPath = Path();
+    final leftLegY = isJumpingOrFalling ? 10 : legOffset;
+    leftLegPath.moveTo(size.x * 0.4, size.y * 0.6);
+    leftLegPath.quadraticBezierTo(
+        size.x * 0.35,
+        size.y * (0.75 + leftLegY / 100),
+        size.x * 0.3,
+        size.y * (0.95 + leftLegY / 100));
+    leftLegPath.lineTo(size.x * 0.4, size.y * (0.95 + leftLegY / 100));
+    leftLegPath.quadraticBezierTo(size.x * 0.42,
+        size.y * (0.75 + leftLegY / 100), size.x * 0.45, size.y * 0.6);
+    leftLegPath.close();
+    canvas.drawPath(leftLegPath, legPaint);
+
+    // Sağ bacak
+    final rightLegPath = Path();
+    final rightLegY = isJumpingOrFalling ? 10 : -legOffset;
+    rightLegPath.moveTo(size.x * 0.55, size.y * 0.6);
+    rightLegPath.quadraticBezierTo(
+        size.x * 0.6,
+        size.y * (0.75 + rightLegY / 100),
+        size.x * 0.65,
+        size.y * (0.95 + rightLegY / 100));
+    rightLegPath.lineTo(size.x * 0.55, size.y * (0.95 + rightLegY / 100));
+    rightLegPath.quadraticBezierTo(size.x * 0.52,
+        size.y * (0.75 + rightLegY / 100), size.x * 0.5, size.y * 0.6);
+    rightLegPath.close();
+    canvas.drawPath(rightLegPath, legPaint);
+
+    // Vücut - kırmızı yeniçeri üniforması
+    final bodyPaint = Paint()..color = bodyColor;
+    final bodyPath = Path();
+    bodyPath.moveTo(size.x * 0.4, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.6, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.65, size.y * 0.3);
+    bodyPath.quadraticBezierTo(
+        size.x * 0.5, size.y * 0.25, size.x * 0.35, size.y * 0.3);
+    bodyPath.close();
+    canvas.drawPath(bodyPath, bodyPaint);
+
+    // Göğüs detayları - altın işlemeler
+    final chestDetailPaint = Paint()
+      ..color = accentColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    // Göğüs işlemeleri
+    canvas.drawArc(
+        Rect.fromLTWH(
+            size.x * 0.42, size.y * 0.35, size.x * 0.16, size.y * 0.15),
+        math.pi * 0.3,
+        math.pi * 0.4,
+        false,
+        chestDetailPaint);
+
+    canvas.drawArc(
+        Rect.fromLTWH(
+            size.x * 0.42, size.y * 0.4, size.x * 0.16, size.y * 0.15),
+        math.pi * 0.3,
+        math.pi * 0.4,
+        false,
+        chestDetailPaint);
+
+    // Kemeri çiz - altın kemer
+    final beltPaint = Paint()..color = accentColor;
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.38, size.y * 0.55, size.x * 0.24, size.y * 0.05),
+        beltPaint);
+
+    // Kafa - yeniçeri börkü (başlık)
+    final headPaint = Paint()..color = Colors.white; // Beyaz börk
+    canvas.drawCircle(
+        Offset(size.x * 0.5, size.y * 0.2), size.x * 0.15, headPaint);
+
+    // Börk tepe kısmı (kırmızı)
+    final borkTopPaint = Paint()..color = bodyColor;
+    canvas.drawCircle(
+        Offset(size.x * 0.5, size.y * 0.15), size.x * 0.1, borkTopPaint);
+
+    // Börk sorgucu (tüy)
+    final featherPaint = Paint()..color = Colors.white;
+    final featherPath = Path();
+    final windEffect = math.sin(_getAnimationTime() * 2) * 5;
+    featherPath.moveTo(size.x * 0.5, size.y * 0.05);
+    featherPath.quadraticBezierTo(size.x * (0.55 + windEffect / 100),
+        size.y * 0, size.x * (0.6 + windEffect / 100), size.y * 0.1);
+    featherPath.quadraticBezierTo(
+        size.x * 0.55, size.y * 0.12, size.x * 0.5, size.y * 0.05);
+    canvas.drawPath(featherPath, featherPaint);
+
+    // Yüz çizimi
+    final facePaint = Paint()..color = skinColor;
+    canvas.drawOval(
+        Rect.fromLTWH(size.x * 0.4, size.y * 0.17, size.x * 0.2, size.y * 0.15),
+        facePaint);
+
+    // Gözler
+    final eyePaint = Paint()..color = Colors.white;
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.42, size.y * 0.19, size.x * 0.06, size.y * 0.06),
+        eyePaint);
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.52, size.y * 0.19, size.x * 0.06, size.y * 0.06),
+        eyePaint);
+
+    // Göz bebekleri
+    final lookDirection = state == PlayerState.dashing ? 0.02 : 0.0;
+    final pupilPaint = Paint()..color = Colors.black;
+    canvas.drawCircle(Offset(size.x * (0.45 + lookDirection), size.y * 0.22),
+        size.x * 0.02, pupilPaint);
+    canvas.drawCircle(Offset(size.x * (0.55 + lookDirection), size.y * 0.22),
+        size.x * 0.02, pupilPaint);
+
+    // Bıyık
+    final mustachePaint = Paint()..color = Colors.black;
+    canvas.drawLine(Offset(size.x * 0.45, size.y * 0.26),
+        Offset(size.x * 0.4, size.y * 0.25), mustachePaint..strokeWidth = 2);
+    canvas.drawLine(Offset(size.x * 0.55, size.y * 0.26),
+        Offset(size.x * 0.6, size.y * 0.25), mustachePaint..strokeWidth = 2);
+
+    // Kollar - koşma animasyonlu veya kılıç sallama
+    final armPaint = Paint()..color = bodyColor;
+
+    // Sol kol
+    final leftArmPath = Path();
+    leftArmPath.moveTo(size.x * 0.4, size.y * 0.35);
+    leftArmPath.quadraticBezierTo(
+        size.x * (0.3 - armOffset / 100),
+        size.y * (0.4 - armOffset / 100),
+        size.x * (0.25 - armOffset / 100),
+        size.y * (0.5 - armOffset / 100));
+    leftArmPath.lineTo(
+        size.x * (0.3 - armOffset / 100), size.y * (0.55 - armOffset / 100));
+    leftArmPath.quadraticBezierTo(size.x * (0.35 - armOffset / 100),
+        size.y * (0.45 - armOffset / 100), size.x * 0.4, size.y * 0.4);
+    leftArmPath.close();
+    canvas.drawPath(leftArmPath, armPaint);
+
+    // Sağ kol - kılıç tutan
+    final rightArmPath = Path();
+
+    // Kılıç sallama durumunda kolun açısını değiştir
+    double armAngle = 0.0;
+    if (isSwingingBlade) {
+      // Kılıç sallarken kolu yukarıdan aşağıya doğru hareket ettir
+      armAngle = -math.pi * 0.5 + swingAngle;
+    } else {
+      // Normal kol pozisyonu
+      armAngle = 0.0;
+    }
+
+    // Kola açı uygula
+    double armX = size.x * 0.65;
+    double armY = size.y * 0.40;
+
+    if (isSwingingBlade) {
+      // Sallama sırasında omuz bağlantısını sabit tut, dirsek ve bilek hareket etsin
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+
+      // Dirsek pozisyonu
       double elbowX =
           size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
       double elbowY =
           size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
-      handleX = elbowX + math.cos(armAngle) * size.x * 0.2;
-      handleY = elbowY + math.sin(armAngle) * size.x * 0.2;
+
+      // Bilek pozisyonu
+      double wristX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      double wristY = elbowY + math.sin(armAngle) * size.x * 0.2;
+
+      rightArmPath.lineTo(elbowX, elbowY);
+      rightArmPath.lineTo(wristX, wristY);
+      rightArmPath.lineTo(wristX - 5, wristY + 5);
+      rightArmPath.close();
     } else {
-      // Normal duruşta kılıcın pozisyonu
-      handleX = size.x * 0.75;
-      handleY = size.y * 0.4;
+      // Normal kol çizimi
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+      rightArmPath.quadraticBezierTo(
+          armX, armY, armX + size.x * 0.1, armY + size.y * 0.1);
+      rightArmPath.lineTo(armX + size.x * 0.1, armY + size.y * 0.15);
+      rightArmPath.quadraticBezierTo(
+          armX, armY + size.y * 0.05, size.x * 0.6, size.y * 0.42);
+      rightArmPath.close();
     }
 
-    // Kılıç açısı
-    double swordAngle = isSwinging ? armAngle : math.pi * 0.1; // Hafif eğimli
+    canvas.drawPath(rightArmPath, armPaint);
 
-    // Kılıç uzunluğu ve genişliği
-    final bladeLength = size.x * 0.6; // Uzun bir katana
-    final bladeWidth = size.x * 0.03; // İnce bir bıçak
+    // Silah çizimi - varsayılan olarak kılıç
+    final weaponType = character.attributes['weaponType'] as String? ?? 'sword';
 
-    // Kılıç kabzası (handle)
-    final handlePaint = Paint()..color = Colors.brown.shade900;
-    final handleLength = size.x * 0.15;
-    final handleWidth = size.x * 0.04;
-
-    // Kılıç bıçağı (blade)
-    final bladePaint = Paint()..color = Colors.grey.shade300;
-
-    // Sallama animasyonu sırasında kılıç parıltısı
-    if (isSwinging) {
-      bladePaint.maskFilter = MaskFilter.blur(BlurStyle.outer, 2.0);
-      if (isPoweredUp) {
-        bladePaint.color =
-            Colors.lightBlue.shade200; // Güçlendirilmiş kılıç rengi
-      }
+    switch (weaponType) {
+      case 'sword':
+        _drawSword(canvas, size, armAngle, isSwingingBlade);
+        break;
+      case 'axe':
+        _drawAxe(canvas, size, armAngle, isSwingingBlade);
+        break;
+      case 'bow':
+        _drawBow(canvas, size, armAngle, isSwingingBlade);
+        break;
     }
 
-    // Kabza ucundaki tutacağı çiz (tsuba)
-    final tsubaPaint = Paint()..color = Colors.black;
-    canvas.drawCircle(Offset(handleX, handleY), handleWidth * 1.5, tsubaPaint);
+    // Dokunulmazlık efekti
+    if (isInvulnerable) {
+      _renderInvulnerabilityEffect(canvas, size, invulnerabilityTimer);
+    }
 
-    // Kabzayı çiz
+    // Vurulma efekti
+    if (hitAnimationTimer > 0) {
+      _renderHitEffect(canvas, size, hitAnimationTimer);
+    }
+
+    canvas.restore();
+  }
+
+  // Viking karakterini çizme fonksiyonu
+  void _renderViking(Canvas canvas) {
     canvas.save();
-    canvas.translate(handleX, handleY);
-    canvas.rotate(swordAngle + math.pi); // Kabza açısı (kılıcın tersi)
+
+    // Koşma animasyonu için zaman hesaplama
+    final runningTime = DateTime.now().millisecondsSinceEpoch / 150;
+    final legOffset =
+        state == PlayerState.running ? math.sin(runningTime) * 12 : 0;
+    final armOffset =
+        state == PlayerState.running ? math.cos(runningTime) * 10 : 0;
+    final isJumpingOrFalling = state == PlayerState.jumping ||
+        state == PlayerState.doubleJumping ||
+        state == PlayerState.falling;
+
+    // ------ VİKİNG KARAKTERİ ÇİZİMİ ------
+
+    // Gölge efekti
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
+
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(size.x * 0.5, size.y * 0.97),
+            width: size.x * 0.6,
+            height: size.y * 0.1),
+        shadowPaint);
+
+    // Renk şeması
+    final bodyColor = Color(0xFF546E7A); // Viking zırh rengi
+    final accentColor = Color(0xFFD2B48C); // Deri detaylar
+    final skinColor = Color(0xFFFFDBC0); // Viking ten rengi
+    final hairColor = Color(0xFFD4AF37); // Sarı saç/sakal rengi
+
+    // ---- VÜCUT BÖLÜMLERİ ----
+
+    // Bacaklar - koşma animasyonlu
+    final legPaint = Paint()..color = Color(0xFF5D4037); // Kahverengi pantolon
+
+    // Sol bacak
+    final leftLegPath = Path();
+    final leftLegY = isJumpingOrFalling ? 10 : legOffset;
+    leftLegPath.moveTo(size.x * 0.4, size.y * 0.6);
+    leftLegPath.quadraticBezierTo(
+        size.x * 0.35,
+        size.y * (0.75 + leftLegY / 100),
+        size.x * 0.3,
+        size.y * (0.95 + leftLegY / 100));
+    leftLegPath.lineTo(size.x * 0.4, size.y * (0.95 + leftLegY / 100));
+    leftLegPath.quadraticBezierTo(size.x * 0.42,
+        size.y * (0.75 + leftLegY / 100), size.x * 0.45, size.y * 0.6);
+    leftLegPath.close();
+    canvas.drawPath(leftLegPath, legPaint);
+
+    // Sağ bacak
+    final rightLegPath = Path();
+    final rightLegY = isJumpingOrFalling ? 10 : -legOffset;
+    rightLegPath.moveTo(size.x * 0.55, size.y * 0.6);
+    rightLegPath.quadraticBezierTo(
+        size.x * 0.6,
+        size.y * (0.75 + rightLegY / 100),
+        size.x * 0.65,
+        size.y * (0.95 + rightLegY / 100));
+    rightLegPath.lineTo(size.x * 0.55, size.y * (0.95 + rightLegY / 100));
+    rightLegPath.quadraticBezierTo(size.x * 0.52,
+        size.y * (0.75 + rightLegY / 100), size.x * 0.5, size.y * 0.6);
+    rightLegPath.close();
+    canvas.drawPath(rightLegPath, legPaint);
+
+    // Vücut - Viking zırhı
+    final bodyPaint = Paint()..color = bodyColor;
+    final bodyPath = Path();
+    bodyPath.moveTo(size.x * 0.4, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.6, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.65, size.y * 0.3);
+    bodyPath.quadraticBezierTo(
+        size.x * 0.5, size.y * 0.25, size.x * 0.35, size.y * 0.3);
+    bodyPath.close();
+    canvas.drawPath(bodyPath, bodyPaint);
+
+    // Zırh detayları
+    final armorDetailPaint = Paint()
+      ..color = accentColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    // Zırh üzerindeki deri kayışlar
+    canvas.drawLine(Offset(size.x * 0.45, size.y * 0.35),
+        Offset(size.x * 0.55, size.y * 0.35), armorDetailPaint);
+
+    canvas.drawLine(Offset(size.x * 0.43, size.y * 0.42),
+        Offset(size.x * 0.57, size.y * 0.42), armorDetailPaint);
+
+    canvas.drawLine(Offset(size.x * 0.41, size.y * 0.49),
+        Offset(size.x * 0.59, size.y * 0.49), armorDetailPaint);
+
+    // Kemeri çiz
+    final beltPaint = Paint()..color = accentColor;
     canvas.drawRect(
         Rect.fromLTWH(
-            -handleLength, -handleWidth / 2, handleLength, handleWidth),
-        handlePaint);
+            size.x * 0.38, size.y * 0.57, size.x * 0.24, size.y * 0.03),
+        beltPaint);
+
+    // Kafa - Viking yüzü
+    final headPaint = Paint()..color = skinColor;
+    canvas.drawCircle(
+        Offset(size.x * 0.5, size.y * 0.2), size.x * 0.15, headPaint);
+
+    // Viking miğferi
+    final helmetPaint = Paint()..color = Color(0xFF78909C); // Metal miğfer
+    final helmetPath = Path();
+
+    // Miğfer gövdesi
+    helmetPath.moveTo(size.x * 0.35, size.y * 0.2);
+    helmetPath.lineTo(size.x * 0.35, size.y * 0.1);
+    helmetPath.lineTo(size.x * 0.65, size.y * 0.1);
+    helmetPath.lineTo(size.x * 0.65, size.y * 0.2);
+    helmetPath.close();
+    canvas.drawPath(helmetPath, helmetPaint);
+
+    // Miğfer boynuzları
+    final hornPaint = Paint()..color = Color(0xFFD7CCC8); // Boynuz rengi
+
+    // Sol boynuz
+    final leftHornPath = Path();
+    leftHornPath.moveTo(size.x * 0.37, size.y * 0.11);
+    leftHornPath.quadraticBezierTo(
+        size.x * 0.3, size.y * 0.05, size.x * 0.25, size.y * 0.11);
+    leftHornPath.lineTo(size.x * 0.28, size.y * 0.14);
+    leftHornPath.quadraticBezierTo(
+        size.x * 0.32, size.y * 0.08, size.x * 0.37, size.y * 0.13);
+    leftHornPath.close();
+    canvas.drawPath(leftHornPath, hornPaint);
+
+    // Sağ boynuz
+    final rightHornPath = Path();
+    rightHornPath.moveTo(size.x * 0.63, size.y * 0.11);
+    rightHornPath.quadraticBezierTo(
+        size.x * 0.7, size.y * 0.05, size.x * 0.75, size.y * 0.11);
+    rightHornPath.lineTo(size.x * 0.72, size.y * 0.14);
+    rightHornPath.quadraticBezierTo(
+        size.x * 0.68, size.y * 0.08, size.x * 0.63, size.y * 0.13);
+    rightHornPath.close();
+    canvas.drawPath(rightHornPath, hornPaint);
+
+    // Yüz - sadece alt kısmı görünüyor
+    // Sakal
+    final beardPaint = Paint()..color = hairColor;
+    final beardPath = Path();
+    beardPath.moveTo(size.x * 0.4, size.y * 0.23);
+    beardPath.lineTo(size.x * 0.37, size.y * 0.32);
+    beardPath.lineTo(size.x * 0.5, size.y * 0.35);
+    beardPath.lineTo(size.x * 0.63, size.y * 0.32);
+    beardPath.lineTo(size.x * 0.6, size.y * 0.23);
+    beardPath.close();
+    canvas.drawPath(beardPath, beardPaint);
+
+    // Gözler
+    final eyePaint = Paint()..color = Colors.white;
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.42, size.y * 0.14, size.x * 0.06, size.y * 0.04),
+        eyePaint);
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.52, size.y * 0.14, size.x * 0.06, size.y * 0.04),
+        eyePaint);
+
+    // Göz bebekleri
+    final lookDirection = state == PlayerState.dashing ? 0.02 : 0.0;
+    final pupilPaint = Paint()..color = Colors.blue.shade800; // Mavi gözler
+    canvas.drawCircle(Offset(size.x * (0.45 + lookDirection), size.y * 0.16),
+        size.x * 0.015, pupilPaint);
+    canvas.drawCircle(Offset(size.x * (0.55 + lookDirection), size.y * 0.16),
+        size.x * 0.015, pupilPaint);
+
+    // Bıyık
+    final mustachePaint = Paint()
+      ..color = hairColor
+      ..strokeWidth = 2;
+    canvas.drawLine(Offset(size.x * 0.46, size.y * 0.21),
+        Offset(size.x * 0.40, size.y * 0.22), mustachePaint);
+    canvas.drawLine(Offset(size.x * 0.54, size.y * 0.21),
+        Offset(size.x * 0.60, size.y * 0.22), mustachePaint);
+
+    // Kollar - koşma animasyonlu veya balta sallama
+    final armPaint = Paint()..color = bodyColor;
+
+    // Sol kol
+    final leftArmPath = Path();
+    leftArmPath.moveTo(size.x * 0.4, size.y * 0.35);
+    leftArmPath.quadraticBezierTo(
+        size.x * (0.3 - armOffset / 100),
+        size.y * (0.4 - armOffset / 100),
+        size.x * (0.25 - armOffset / 100),
+        size.y * (0.5 - armOffset / 100));
+    leftArmPath.lineTo(
+        size.x * (0.3 - armOffset / 100), size.y * (0.55 - armOffset / 100));
+    leftArmPath.quadraticBezierTo(size.x * (0.35 - armOffset / 100),
+        size.y * (0.45 - armOffset / 100), size.x * 0.4, size.y * 0.4);
+    leftArmPath.close();
+    canvas.drawPath(leftArmPath, armPaint);
+
+    // Sağ kol - balta tutan
+    final rightArmPath = Path();
+
+    // Balta sallama durumunda kolun açısını değiştir
+    double armAngle = 0.0;
+    if (isSwingingBlade) {
+      // Balta sallarken kolu yukarıdan aşağıya doğru hareket ettir
+      armAngle = -math.pi * 0.5 + swingAngle;
+    } else {
+      // Normal kol pozisyonu
+      armAngle = 0.0;
+    }
+
+    // Kola açı uygula
+    double armX = size.x * 0.65;
+    double armY = size.y * 0.40;
+
+    if (isSwingingBlade) {
+      // Sallama sırasında omuz bağlantısını sabit tut, dirsek ve bilek hareket etsin
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+
+      // Dirsek pozisyonu
+      double elbowX =
+          size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
+      double elbowY =
+          size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
+
+      // Bilek pozisyonu
+      double wristX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      double wristY = elbowY + math.sin(armAngle) * size.x * 0.2;
+
+      rightArmPath.lineTo(elbowX, elbowY);
+      rightArmPath.lineTo(wristX, wristY);
+      rightArmPath.lineTo(wristX - 5, wristY + 5);
+      rightArmPath.close();
+    } else {
+      // Normal kol çizimi
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+      rightArmPath.quadraticBezierTo(
+          armX, armY, armX + size.x * 0.1, armY + size.y * 0.1);
+      rightArmPath.lineTo(armX + size.x * 0.1, armY + size.y * 0.15);
+      rightArmPath.quadraticBezierTo(
+          armX, armY + size.y * 0.05, size.x * 0.6, size.y * 0.42);
+      rightArmPath.close();
+    }
+
+    canvas.drawPath(rightArmPath, armPaint);
+
+    // Silah çizimi - varsayılan olarak balta
+    final weaponType = character.attributes['weaponType'] as String? ?? 'axe';
+
+    switch (weaponType) {
+      case 'sword':
+        _drawSword(canvas, size, armAngle, isSwingingBlade);
+        break;
+      case 'axe':
+        _drawAxe(canvas, size, armAngle, isSwingingBlade);
+        break;
+      case 'bow':
+        _drawBow(canvas, size, armAngle, isSwingingBlade);
+        break;
+    }
+
+    // Dokunulmazlık efekti
+    if (isInvulnerable) {
+      _renderInvulnerabilityEffect(canvas, size, invulnerabilityTimer);
+    }
+
+    // Vurulma efekti
+    if (hitAnimationTimer > 0) {
+      _renderHitEffect(canvas, size, hitAnimationTimer);
+    }
+
     canvas.restore();
+  }
 
-    // Bıçağı çiz
+  // Kızılderili karakterini çizme fonksiyonu
+  void _renderIndian(Canvas canvas) {
     canvas.save();
-    canvas.translate(handleX, handleY);
-    canvas.rotate(swordAngle);
 
-    // Kılıç bıçağı
+    // Koşma animasyonu için zaman hesaplama
+    final runningTime = DateTime.now().millisecondsSinceEpoch / 150;
+    final legOffset =
+        state == PlayerState.running ? math.sin(runningTime) * 12 : 0;
+    final armOffset =
+        state == PlayerState.running ? math.cos(runningTime) * 10 : 0;
+    final isJumpingOrFalling = state == PlayerState.jumping ||
+        state == PlayerState.doubleJumping ||
+        state == PlayerState.falling;
+
+    // ------ KIZILDERILI KARAKTERİ ÇİZİMİ ------
+
+    // Gölge efekti
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
+
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(size.x * 0.5, size.y * 0.97),
+            width: size.x * 0.6,
+            height: size.y * 0.1),
+        shadowPaint);
+
+    // Renk şeması
+    final bodyColor = Color(0xFF8D6E63); // Kahverengi deri giysi
+    final accentColor = Color(0xFFF44336); // Kırmızı vurgular
+    final skinColor = Color(0xFFCD9B74); // Kızılderili ten rengi
+    final featherColor = Color(0xFFFFFFFF); // Başlık tüyleri
+
+    // ---- VÜCUT BÖLÜMLERİ ----
+
+    // Bacaklar - koşma animasyonlu
+    final legPaint = Paint()..color = bodyColor;
+
+    // Sol bacak
+    final leftLegPath = Path();
+    final leftLegY = isJumpingOrFalling ? 10 : legOffset;
+    leftLegPath.moveTo(size.x * 0.4, size.y * 0.6);
+    leftLegPath.quadraticBezierTo(
+        size.x * 0.35,
+        size.y * (0.75 + leftLegY / 100),
+        size.x * 0.3,
+        size.y * (0.95 + leftLegY / 100));
+    leftLegPath.lineTo(size.x * 0.4, size.y * (0.95 + leftLegY / 100));
+    leftLegPath.quadraticBezierTo(size.x * 0.42,
+        size.y * (0.75 + leftLegY / 100), size.x * 0.45, size.y * 0.6);
+    leftLegPath.close();
+    canvas.drawPath(leftLegPath, legPaint);
+
+    // Sağ bacak
+    final rightLegPath = Path();
+    final rightLegY = isJumpingOrFalling ? 10 : -legOffset;
+    rightLegPath.moveTo(size.x * 0.55, size.y * 0.6);
+    rightLegPath.quadraticBezierTo(
+        size.x * 0.6,
+        size.y * (0.75 + rightLegY / 100),
+        size.x * 0.65,
+        size.y * (0.95 + rightLegY / 100));
+    rightLegPath.lineTo(size.x * 0.55, size.y * (0.95 + rightLegY / 100));
+    rightLegPath.quadraticBezierTo(size.x * 0.52,
+        size.y * (0.75 + rightLegY / 100), size.x * 0.5, size.y * 0.6);
+    rightLegPath.close();
+    canvas.drawPath(rightLegPath, legPaint);
+
+    // Vücut - Kızılderili kıyafeti
+    final bodyPaint = Paint()..color = bodyColor; // Temel deri kıyafet
+    final bodyPath = Path();
+    bodyPath.moveTo(size.x * 0.4, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.6, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.65, size.y * 0.3);
+    bodyPath.quadraticBezierTo(
+        size.x * 0.5, size.y * 0.25, size.x * 0.35, size.y * 0.3);
+    bodyPath.close();
+    canvas.drawPath(bodyPath, bodyPaint);
+
+    // Kıyafet süslemeleri
+    final decorPaint = Paint()..color = accentColor;
+
+    // Göğüs süslemesi - şeritler
+    for (int i = 0; i < 3; i++) {
+      double y = size.y * (0.35 + i * 0.08);
+      canvas.drawLine(Offset(size.x * 0.43, y), Offset(size.x * 0.57, y),
+          decorPaint..strokeWidth = 2);
+    }
+
+    // Kolye
+    final necklacePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(size.x * 0.5, size.y * 0.33),
+            width: size.x * 0.3,
+            height: size.y * 0.12),
+        necklacePaint);
+
+    // Kolye ucu - küçük mavi taş
+    final stonePaint = Paint()..color = Colors.blue.shade600;
+    canvas.drawCircle(
+        Offset(size.x * 0.5, size.y * 0.39), size.x * 0.03, stonePaint);
+
+    // Kafa - Kızılderili yüzü
+    final headPaint = Paint()..color = skinColor;
+    canvas.drawCircle(
+        Offset(size.x * 0.5, size.y * 0.2), size.x * 0.15, headPaint);
+
+    // Saç - siyah uzun saçlar
+    final hairPaint = Paint()..color = Colors.black;
+    final hairPath = Path();
+
+    // Saç çizgisi
+    hairPath.moveTo(size.x * 0.35, size.y * 0.15);
+    hairPath.lineTo(size.x * 0.35, size.y * 0.4); // Sol omuz saçı
+    hairPath.moveTo(size.x * 0.65, size.y * 0.15);
+    hairPath.lineTo(size.x * 0.65, size.y * 0.4); // Sağ omuz saçı
+
+    canvas.drawPath(hairPath, hairPaint..strokeWidth = 6);
+
+    // Başlık bandı
+    final headbandPaint = Paint()..color = accentColor;
     canvas.drawRect(
-        Rect.fromLTWH(0, -bladeWidth / 2, bladeLength, bladeWidth), bladePaint);
+        Rect.fromLTWH(
+            size.x * 0.35, size.y * 0.15, size.x * 0.3, size.y * 0.04),
+        headbandPaint);
 
-    // Kılıç ucu (keskin köşe)
-    final bladeTipPath = Path();
-    bladeTipPath.moveTo(bladeLength, -bladeWidth / 2);
-    bladeTipPath.lineTo(bladeLength + bladeWidth * 3, 0);
-    bladeTipPath.lineTo(bladeLength, bladeWidth / 2);
-    bladeTipPath.close();
-    canvas.drawPath(bladeTipPath, bladePaint);
+    // Tüy detayları
+    final featherPath = Path();
+    final windEffect = math.sin(_getAnimationTime() * 2) * 5;
 
-    // Güçlendirilmiş kılıç için parıltı efekti
-    if (isPoweredUp) {
-      final glowPaint = Paint()
-        ..color = Colors.blue.withOpacity(0.3)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8.0);
+    // Ana tüy
+    featherPath.moveTo(size.x * 0.5, size.y * 0.15);
+    featherPath.lineTo(size.x * (0.48 + windEffect / 100), size.y * 0.02);
+    canvas.drawPath(
+        featherPath,
+        Paint()
+          ..color = featherColor
+          ..strokeWidth = 3
+          ..style = PaintingStyle.stroke);
 
+    // Tüy ucu
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(size.x * (0.48 + windEffect / 100), size.y * 0.02),
+            width: size.x * 0.04,
+            height: size.y * 0.05),
+        Paint()..color = accentColor);
+
+    // Yüz boyaları - savaş boyası
+    final warPaintPath = Path();
+    final warPaint = Paint()
+      ..color = accentColor
+      ..strokeWidth = 2;
+
+    // Yüz boyaları - yatay çizgiler
+    canvas.drawLine(Offset(size.x * 0.4, size.y * 0.22),
+        Offset(size.x * 0.45, size.y * 0.22), warPaint);
+    canvas.drawLine(Offset(size.x * 0.55, size.y * 0.22),
+        Offset(size.x * 0.6, size.y * 0.22), warPaint);
+
+    // Gözler
+    final eyePaint = Paint()..color = Colors.white;
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.42, size.y * 0.17, size.x * 0.06, size.y * 0.05),
+        eyePaint);
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.52, size.y * 0.17, size.x * 0.06, size.y * 0.05),
+        eyePaint);
+
+    // Göz bebekleri
+    final lookDirection = state == PlayerState.dashing ? 0.02 : 0.0;
+    final pupilPaint = Paint()..color = Colors.black;
+    canvas.drawCircle(Offset(size.x * (0.45 + lookDirection), size.y * 0.195),
+        size.x * 0.02, pupilPaint);
+    canvas.drawCircle(Offset(size.x * (0.55 + lookDirection), size.y * 0.195),
+        size.x * 0.02, pupilPaint);
+
+    // Ağız
+    final mouthPaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawLine(Offset(size.x * 0.45, size.y * 0.27),
+        Offset(size.x * 0.55, size.y * 0.27), mouthPaint);
+
+    // Kollar - koşma animasyonlu veya ok atma
+    final armPaint = Paint()..color = skinColor; // Çıplak kollar
+
+    // Sol kol
+    final leftArmPath = Path();
+    leftArmPath.moveTo(size.x * 0.4, size.y * 0.35);
+    leftArmPath.quadraticBezierTo(
+        size.x * (0.3 - armOffset / 100),
+        size.y * (0.4 - armOffset / 100),
+        size.x * (0.25 - armOffset / 100),
+        size.y * (0.5 - armOffset / 100));
+    leftArmPath.lineTo(
+        size.x * (0.3 - armOffset / 100), size.y * (0.55 - armOffset / 100));
+    leftArmPath.quadraticBezierTo(size.x * (0.35 - armOffset / 100),
+        size.y * (0.45 - armOffset / 100), size.x * 0.4, size.y * 0.4);
+    leftArmPath.close();
+    canvas.drawPath(leftArmPath, armPaint);
+
+    // Kol bilekliği
+    final braceletPaint = Paint()..color = accentColor;
+    canvas.drawRect(
+        Rect.fromLTWH(size.x * (0.25 - armOffset / 100),
+            size.y * (0.45 - armOffset / 100), size.x * 0.05, size.y * 0.03),
+        braceletPaint);
+
+    // Sağ kol - ok tutan
+    final rightArmPath = Path();
+
+    // Yay çekme durumunda kolun açısını değiştir
+    double armAngle = 0.0;
+    if (isSwingingBlade) {
+      // Ok atarken kolu yukarıdan aşağıya doğru hareket ettir
+      armAngle = -math.pi * 0.5 + swingAngle;
+    } else {
+      // Normal kol pozisyonu
+      armAngle = 0.0;
+    }
+
+    // Kola açı uygula
+    double armX = size.x * 0.65;
+    double armY = size.y * 0.40;
+
+    if (isSwingingBlade) {
+      // Sallama sırasında omuz bağlantısını sabit tut, dirsek ve bilek hareket etsin
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+
+      // Dirsek pozisyonu
+      double elbowX =
+          size.x * 0.6 + math.cos(armAngle - math.pi / 4) * size.x * 0.15;
+      double elbowY =
+          size.y * 0.35 + math.sin(armAngle - math.pi / 4) * size.x * 0.15;
+
+      // Bilek pozisyonu
+      double wristX = elbowX + math.cos(armAngle) * size.x * 0.2;
+      double wristY = elbowY + math.sin(armAngle) * size.x * 0.2;
+
+      rightArmPath.lineTo(elbowX, elbowY);
+      rightArmPath.lineTo(wristX, wristY);
+      rightArmPath.lineTo(wristX - 5, wristY + 5);
+      rightArmPath.close();
+    } else {
+      // Normal kol çizimi
+      rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+      rightArmPath.quadraticBezierTo(
+          armX, armY, armX + size.x * 0.1, armY + size.y * 0.1);
+      rightArmPath.lineTo(armX + size.x * 0.1, armY + size.y * 0.15);
+      rightArmPath.quadraticBezierTo(
+          armX, armY + size.y * 0.05, size.x * 0.6, size.y * 0.42);
+      rightArmPath.close();
+    }
+
+    canvas.drawPath(rightArmPath, armPaint);
+
+    // Sağ bileklik
+    if (!isSwingingBlade) {
       canvas.drawRect(
-          Rect.fromLTWH(0, -bladeWidth, bladeLength, bladeWidth * 2),
-          glowPaint);
+          Rect.fromLTWH(armX + size.x * 0.05, armY + size.y * 0.1,
+              size.x * 0.05, size.y * 0.03),
+          braceletPaint);
+    }
+
+    // Silah çizimi - varsayılan olarak yay
+    final weaponType = character.attributes['weaponType'] as String? ?? 'bow';
+
+    switch (weaponType) {
+      case 'sword':
+        _drawSword(canvas, size, armAngle, isSwingingBlade);
+        break;
+      case 'axe':
+        _drawAxe(canvas, size, armAngle, isSwingingBlade);
+        break;
+      case 'bow':
+        _drawBow(canvas, size, armAngle, isSwingingBlade);
+        break;
+    }
+
+    // Dokunulmazlık efekti
+    if (isInvulnerable) {
+      _renderInvulnerabilityEffect(canvas, size, invulnerabilityTimer);
+    }
+
+    // Vurulma efekti
+    if (hitAnimationTimer > 0) {
+      _renderHitEffect(canvas, size, hitAnimationTimer);
     }
 
     canvas.restore();

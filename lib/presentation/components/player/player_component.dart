@@ -288,24 +288,21 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
       return;
     }
 
-    // Karakter ID'sine göre çiz, varsayılan olarak tavşan
-    final characterId = character?.id ?? 'rabbit';
+    // Karakter ID'sine göre çiz, varsayılan olarak ninja
+    final characterId = character?.id ?? 'ninja';
 
     switch (characterId) {
-      case 'rabbit':
-        _drawRabbit(canvas);
+      case 'ninja':
+        _drawNinja(canvas);
         break;
-      case 'cheetah':
-        _drawCheetah(canvas);
+      case 'janissary':
+        _drawJanissary(canvas);
         break;
-      case 'frog':
-        _drawFrog(canvas);
+      case 'viking':
+        _drawViking(canvas);
         break;
-      case 'fox':
-        _drawFox(canvas);
-        break;
-      case 'eagle':
-        _drawEagle(canvas);
+      case 'indian':
+        _drawIndian(canvas);
         break;
       default:
         _drawDefaultShape(canvas);
@@ -329,107 +326,329 @@ class PlayerComponent extends PositionComponent with CollisionCallbacks {
     canvas.drawRect(innerRect, _secondaryPaint);
   }
 
-  // Tavşan çizimi
-  void _drawRabbit(Canvas canvas) {
-    _drawRoundedRectCharacter(canvas, defaultColor, secondaryColor, 0.3);
-  }
-
-  // Çita çizimi
-  void _drawCheetah(Canvas canvas) {
-    _drawRoundedRectCharacter(canvas, defaultColor, secondaryColor, 0.4);
-    // Çita için benek ekle
-    final spotPaint = Paint()..color = Colors.black.withOpacity(0.7);
-    final random = math.Random(1);
-    for (int i = 0; i < 5; i++) {
-      final spotX = (random.nextDouble() - 0.5) * size.x * 0.8;
-      final spotY = (random.nextDouble() - 0.5) * size.y * 0.8;
-      final spotRadius = 2 + random.nextDouble() * 2;
-      canvas.drawCircle(Offset(spotX, spotY), spotRadius, spotPaint);
-    }
-  }
-
-  // Kurbağa çizimi
-  void _drawFrog(Canvas canvas) {
-    _drawRoundedRectCharacter(canvas, defaultColor, secondaryColor, 0.5);
-    // Kurbağa için büyük göz ekle
-    final eyeRadius = size.x * 0.15;
-    canvas.drawCircle(
-        Offset(-size.x * 0.2, -size.y * 0.2), eyeRadius, _eyePaint);
-    canvas.drawCircle(
-        Offset(size.x * 0.2, -size.y * 0.2), eyeRadius, _eyePaint);
-    canvas.drawCircle(
-        Offset(-size.x * 0.2, -size.y * 0.2), eyeRadius * 0.5, _pupilPaint);
-    canvas.drawCircle(
-        Offset(size.x * 0.2, -size.y * 0.2), eyeRadius * 0.5, _pupilPaint);
-  }
-
-  // Tilki çizimi
-  void _drawFox(Canvas canvas) {
-    _drawRoundedRectCharacter(canvas, defaultColor, secondaryColor, 0.2);
-    // Tilki için üçgen kulaklar ekle
-    final earPaint = Paint()..color = defaultColor;
-    final path = Path();
-    path.moveTo(-size.x * 0.3, -size.y / 2);
-    path.lineTo(-size.x * 0.1, -size.y / 2 - 15);
-    path.lineTo(-size.x * 0.1, -size.y / 2);
-    path.close();
-    canvas.drawPath(path, earPaint);
-
-    final path2 = Path();
-    path2.moveTo(size.x * 0.3, -size.y / 2);
-    path2.lineTo(size.x * 0.1, -size.y / 2 - 15);
-    path2.lineTo(size.x * 0.1, -size.y / 2);
-    path2.close();
-    canvas.drawPath(path2, earPaint);
-  }
-
-  // Kartal çizimi
-  void _drawEagle(Canvas canvas) {
-    _drawRoundedRectCharacter(canvas, defaultColor, secondaryColor, 0.1);
-    // Kartal için kanat benzeri şekil ekle
-    final wingPaint = Paint()..color = secondaryColor;
-    final path = Path();
-    path.moveTo(-size.x / 2, -size.y * 0.1);
-    path.quadraticBezierTo(
-        -size.x * 0.8, size.y * 0.3, -size.x / 2, size.y * 0.7);
-    path.close();
-    canvas.drawPath(path, wingPaint);
-
-    final path2 = Path();
-    path2.moveTo(size.x / 2, -size.y * 0.1);
-    path2.quadraticBezierTo(
-        size.x * 0.8, size.y * 0.3, size.x / 2, size.y * 0.7);
-    path2.close();
-    canvas.drawPath(path2, wingPaint);
-  }
-
-  // Yuvarlatılmış dikdörtgen karakter çizimi için yardımcı metod
-  void _drawRoundedRectCharacter(Canvas canvas, Color primary, Color secondary,
-      double borderRadiusFactor) {
-    final rect = Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y);
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(size.x * borderRadiusFactor),
+  // Ninja çizimi
+  void _drawNinja(Canvas canvas) {
+    // Ninja vücudu
+    final bodyRect = Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y);
+    final bodyRRect = RRect.fromRectAndRadius(
+      bodyRect,
+      Radius.circular(size.x * 0.1),
     );
-    _paint.color = primary;
-    _secondaryPaint.color = secondary;
+    _paint.color = defaultColor;
+    canvas.drawRRect(bodyRRect, _paint);
 
-    canvas.drawRRect(rrect, _paint);
-
-    // İç desen veya vurgu ekle
-    final innerRect = Rect.fromCenter(
-      center: Offset(0, size.y * 0.15),
-      width: size.x * 0.7,
-      height: size.y * 0.4,
+    // Ninja maskesi/kafası
+    final headPaint = Paint()..color = defaultColor;
+    canvas.drawCircle(
+      Offset(0, -size.y * 0.25),
+      size.x * 0.25,
+      headPaint,
     );
-    final innerRRect = RRect.fromRectAndRadius(
-      innerRect,
-      Radius.circular(size.x * borderRadiusFactor * 0.5),
-    );
-    canvas.drawRRect(innerRRect, _secondaryPaint);
 
-    // Göz ekle
-    _drawEyes(canvas);
+    // Göz çizimi - ninja gözleri
+    final eyePaint = Paint()..color = secondaryColor;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(-size.x * 0.1, -size.y * 0.3),
+        width: size.x * 0.15,
+        height: size.y * 0.06,
+      ),
+      eyePaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.x * 0.1, -size.y * 0.3),
+        width: size.x * 0.15,
+        height: size.y * 0.06,
+      ),
+      eyePaint,
+    );
+
+    // Ninja kuşağı
+    final beltPaint = Paint()..color = secondaryColor;
+    canvas.drawRect(
+      Rect.fromLTWH(-size.x / 2, -size.y * 0.1, size.x, size.y * 0.1),
+      beltPaint,
+    );
+
+    // Ninja kılıcı
+    final swordPaint = Paint()..color = Colors.grey.shade300;
+    canvas.drawRect(
+      Rect.fromLTWH(size.x * 0.2, -size.y * 0.4, size.x * 0.1, size.y * 0.6),
+      swordPaint,
+    );
+
+    // Kılıç sapı
+    final handlePaint = Paint()..color = Colors.brown.shade700;
+    canvas.drawRect(
+      Rect.fromLTWH(size.x * 0.2, -size.y * 0.45, size.x * 0.1, size.y * 0.1),
+      handlePaint,
+    );
+  }
+
+  // Yeniçeri çizimi
+  void _drawJanissary(Canvas canvas) {
+    // Yeniçeri vücudu
+    final bodyRect = Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y);
+    final bodyRRect = RRect.fromRectAndRadius(
+      bodyRect,
+      Radius.circular(size.x * 0.1),
+    );
+    _paint.color = defaultColor;
+    canvas.drawRRect(bodyRRect, _paint);
+
+    // Yeniçeri başlığı
+    final hatPaint = Paint()..color = secondaryColor;
+    final hatPath = Path();
+    hatPath.moveTo(-size.x * 0.25, -size.y * 0.5);
+    hatPath.lineTo(0, -size.y * 0.8);
+    hatPath.lineTo(size.x * 0.25, -size.y * 0.5);
+    hatPath.close();
+    canvas.drawPath(hatPath, hatPaint);
+
+    // Yeniçeri yüzü
+    final facePaint = Paint()..color = Colors.brown.shade200;
+    canvas.drawCircle(
+      Offset(0, -size.y * 0.3),
+      size.x * 0.2,
+      facePaint,
+    );
+
+    // Gözler
+    final eyePaint = Paint()..color = Colors.black;
+    canvas.drawCircle(
+      Offset(-size.x * 0.08, -size.y * 0.32),
+      size.x * 0.03,
+      eyePaint,
+    );
+    canvas.drawCircle(
+      Offset(size.x * 0.08, -size.y * 0.32),
+      size.x * 0.03,
+      eyePaint,
+    );
+
+    // Ağız
+    final mouthPaint = Paint()
+      ..color = Colors.brown.shade800
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(0, -size.y * 0.25),
+        width: size.x * 0.2,
+        height: size.y * 0.1,
+      ),
+      0,
+      math.pi,
+      false,
+      mouthPaint,
+    );
+
+    // Yeniçeri kılıcı
+    final swordPaint = Paint()..color = Colors.grey.shade400;
+    canvas.drawRect(
+      Rect.fromLTWH(-size.x * 0.3, -size.y * 0.1, size.x * 0.6, size.y * 0.04),
+      swordPaint,
+    );
+
+    // Kılıç kolları/eli
+    final handPaint = Paint()..color = Colors.brown.shade500;
+    canvas.drawCircle(
+      Offset(-size.x * 0.1, -size.y * 0.08),
+      size.x * 0.06,
+      handPaint,
+    );
+  }
+
+  // Viking çizimi
+  void _drawViking(Canvas canvas) {
+    // Viking vücudu
+    final bodyRect = Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y);
+    final bodyRRect = RRect.fromRectAndRadius(
+      bodyRect,
+      Radius.circular(size.x * 0.1),
+    );
+    _paint.color = defaultColor;
+    canvas.drawRRect(bodyRRect, _paint);
+
+    // Viking kafası
+    final headPaint = Paint()..color = Colors.brown.shade300;
+    canvas.drawCircle(
+      Offset(0, -size.y * 0.25),
+      size.x * 0.25,
+      headPaint,
+    );
+
+    // Viking kaskı
+    final helmetPaint = Paint()..color = secondaryColor;
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(0, -size.y * 0.25),
+        width: size.x * 0.6,
+        height: size.y * 0.5,
+      ),
+      -math.pi,
+      math.pi,
+      true,
+      helmetPaint,
+    );
+
+    // Viking kask boynuzları
+    final hornPaint = Paint()..color = Colors.grey.shade300;
+
+    // Sol boynuz
+    final leftHornPath = Path();
+    leftHornPath.moveTo(-size.x * 0.2, -size.y * 0.4);
+    leftHornPath.quadraticBezierTo(
+      -size.x * 0.4,
+      -size.y * 0.7,
+      -size.x * 0.3,
+      -size.y * 0.6,
+    );
+    leftHornPath.close();
+    canvas.drawPath(leftHornPath, hornPaint);
+
+    // Sağ boynuz
+    final rightHornPath = Path();
+    rightHornPath.moveTo(size.x * 0.2, -size.y * 0.4);
+    rightHornPath.quadraticBezierTo(
+      size.x * 0.4,
+      -size.y * 0.7,
+      size.x * 0.3,
+      -size.y * 0.6,
+    );
+    rightHornPath.close();
+    canvas.drawPath(rightHornPath, hornPaint);
+
+    // Gözler
+    final eyePaint = Paint()..color = Colors.black;
+    canvas.drawCircle(
+      Offset(-size.x * 0.08, -size.y * 0.3),
+      size.x * 0.03,
+      eyePaint,
+    );
+    canvas.drawCircle(
+      Offset(size.x * 0.08, -size.y * 0.3),
+      size.x * 0.03,
+      eyePaint,
+    );
+
+    // Sakal
+    final beardPaint = Paint()..color = Colors.orange.shade700;
+    canvas.drawRect(
+      Rect.fromLTWH(-size.x * 0.2, -size.y * 0.25, size.x * 0.4, size.y * 0.15),
+      beardPaint,
+    );
+
+    // Balta
+    final axePaint = Paint()..color = Colors.brown.shade700;
+    canvas.drawRect(
+      Rect.fromLTWH(size.x * 0.3, -size.y * 0.5, size.x * 0.06, size.y * 0.6),
+      axePaint,
+    );
+
+    // Balta başı
+    final axeHeadPaint = Paint()..color = Colors.grey.shade400;
+    final axeHeadPath = Path();
+    axeHeadPath.moveTo(size.x * 0.3, -size.y * 0.4);
+    axeHeadPath.lineTo(size.x * 0.5, -size.y * 0.3);
+    axeHeadPath.lineTo(size.x * 0.5, -size.y * 0.5);
+    axeHeadPath.close();
+    canvas.drawPath(axeHeadPath, axeHeadPaint);
+  }
+
+  // Kızılderili çizimi
+  void _drawIndian(Canvas canvas) {
+    // Kızılderili vücudu
+    final bodyRect = Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y);
+    final bodyRRect = RRect.fromRectAndRadius(
+      bodyRect,
+      Radius.circular(size.x * 0.1),
+    );
+    _paint.color = defaultColor;
+    canvas.drawRRect(bodyRRect, _paint);
+
+    // Kızılderili kafası
+    final headPaint = Paint()..color = Colors.brown.shade400;
+    canvas.drawCircle(
+      Offset(0, -size.y * 0.25),
+      size.x * 0.25,
+      headPaint,
+    );
+
+    // Tüy başlık
+    final featherPaint = Paint()..color = secondaryColor;
+
+    // Ana tüy
+    canvas.drawRect(
+      Rect.fromLTWH(-size.x * 0.05, -size.y * 0.8, size.x * 0.1, size.y * 0.3),
+      featherPaint,
+    );
+
+    // Yan tüyler
+    canvas.drawRect(
+      Rect.fromLTWH(
+          -size.x * 0.15, -size.y * 0.75, size.x * 0.08, size.y * 0.25),
+      featherPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(
+          size.x * 0.07, -size.y * 0.75, size.x * 0.08, size.y * 0.25),
+      featherPaint,
+    );
+
+    // Gözler
+    final eyePaint = Paint()..color = Colors.black;
+    canvas.drawCircle(
+      Offset(-size.x * 0.08, -size.y * 0.28),
+      size.x * 0.03,
+      eyePaint,
+    );
+    canvas.drawCircle(
+      Offset(size.x * 0.08, -size.y * 0.28),
+      size.x * 0.03,
+      eyePaint,
+    );
+
+    // Yüz çizgileri
+    final warPaintStroke = Paint()
+      ..color = secondaryColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawLine(
+      Offset(-size.x * 0.15, -size.y * 0.2),
+      Offset(size.x * 0.15, -size.y * 0.2),
+      warPaintStroke,
+    );
+
+    // Yay
+    final bowPaint = Paint()
+      ..color = Colors.brown.shade800
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawArc(
+      Rect.fromLTWH(size.x * 0.25, -size.y * 0.4, size.x * 0.15, size.y * 0.6),
+      -math.pi / 2,
+      math.pi,
+      false,
+      bowPaint,
+    );
+
+    // Ok
+    final arrowPaint = Paint()..color = Colors.brown.shade600;
+    canvas.drawRect(
+      Rect.fromLTWH(size.x * 0.2, -size.y * 0.1, size.x * 0.3, size.y * 0.02),
+      arrowPaint,
+    );
+
+    // Ok ucu
+    final arrowHeadPaint = Paint()..color = Colors.grey.shade300;
+    final arrowHeadPath = Path();
+    arrowHeadPath.moveTo(size.x * 0.5, -size.y * 0.1);
+    arrowHeadPath.lineTo(size.x * 0.55, -size.y * 0.07);
+    arrowHeadPath.lineTo(size.x * 0.55, -size.y * 0.13);
+    arrowHeadPath.close();
+    canvas.drawPath(arrowHeadPath, arrowHeadPaint);
   }
 
   // Göz çizimi için yardımcı metod

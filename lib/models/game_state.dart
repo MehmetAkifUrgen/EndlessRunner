@@ -74,7 +74,7 @@ class GameState with ChangeNotifier {
   List<Level> _availableLevels = [];
 
   // Karakter sistemi için eklemeler
-  String _currentCharacterId = 'rabbit';
+  String _currentCharacterId = 'ninja';
   List<PlayerCharacter> _availableCharacters = [];
 
   // Getters
@@ -261,17 +261,26 @@ class GameState with ChangeNotifier {
     _availableCharacters = CharacterManager.characters;
   }
 
-  // Yüksek skoru ve diğer verileri yükle
+  // Kayıtlı verileri yükle
   Future<void> _loadSavedData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Yüksek skoru yükle
       _highScore = prefs.getInt('highScore') ?? 0;
+
+      // Para miktarını yükle
       _coins = prefs.getInt('coins') ?? 0;
-      _currentThemeId = prefs.getString('currentTheme') ?? 'default';
+
+      // Oyuncu seviyesini yükle
       _playerLevel = prefs.getInt('playerLevel') ?? 1;
       _currentXP = prefs.getInt('currentXP') ?? 0;
-      _currentLevelId = prefs.getInt('currentLevelId') ?? 1;
-      _currentCharacterId = prefs.getString('currentCharacter') ?? 'rabbit';
+
+      // Seçili temayı yükle
+      _currentThemeId = prefs.getString('currentTheme') ?? 'default';
+
+      // Seçili karakteri yükle
+      _currentCharacterId = prefs.getString('currentCharacter') ?? 'ninja';
 
       // Açık temaları yükle
       _availableThemes = _availableThemes.map((theme) {
@@ -316,8 +325,8 @@ class GameState with ChangeNotifier {
       // Eğer yüklenen ID geçerli değilse VEYA hala 'runner' ise
       if (!loadedIdIsValid || _currentCharacterId == 'runner') {
         print(
-            "Geçersiz veya eski karakter ID'si yüklendi: $_currentCharacterId. Rabbit'e dönülüyor.");
-        _currentCharacterId = 'rabbit'; // Yeni varsayılanı ayarla
+            "Geçersiz veya eski karakter ID'si yüklendi: $_currentCharacterId. Ninja'ya dönülüyor.");
+        _currentCharacterId = 'ninja'; // Yeni varsayılanı ayarla
         await prefs.setString(
             'currentCharacter', _currentCharacterId); // Yeni varsayılanı kaydet
       }
@@ -654,5 +663,39 @@ class GameState with ChangeNotifier {
     } else {
       print("Cannot set character: Character $characterId is not unlocked");
     }
+  }
+
+  // Karakter kilidini açma metodu
+  void unlockCharacter(String characterId, int price) {
+    // Yeterli altın var mı kontrol et
+    if (_coins < price) {
+      print("Cannot unlock character: Not enough coins");
+      return;
+    }
+
+    // Karakteri bul
+    final characterIndex =
+        _availableCharacters.indexWhere((c) => c.id == characterId);
+    if (characterIndex == -1) {
+      print("Cannot unlock character: Character not found");
+      return;
+    }
+
+    // Karakteri güncelle
+    final updatedCharacter =
+        _availableCharacters[characterIndex].copyWith(isUnlocked: true);
+    _availableCharacters[characterIndex] = updatedCharacter;
+
+    // Altınları düş
+    _coins -= price;
+
+    // SharedPreferences'a kaydet
+    _saveData();
+    CharacterManager.unlockCharacter(characterId);
+
+    // UI'ı güncelle
+    notifyListeners();
+
+    print("Character $characterId unlocked for $price coins");
   }
 }

@@ -90,6 +90,9 @@ class RunnerGame extends FlameGame
   bool hasSlowMotion = false;
   double slowMotionTimer = 0;
 
+  // Game over bonus kontrolü için flag
+  bool bonusAdded = false;
+
   // Ses servisi
   //final AudioService audioService = AudioService(); // Public yapıldı
 
@@ -851,6 +854,7 @@ class RunnerGame extends FlameGame
     shieldTimer = 0;
     slowMotionTimer = 0;
     showLevelUpMessage = false; // Seviye mesajını gizle
+    bonusAdded = false; // Bonus eklenme durumunu sıfırla
 
     // Karakteri yeniden oluştur
     // Mevcut humanPlayer'ı kaldır
@@ -1358,6 +1362,10 @@ class GameScreen extends StatelessWidget {
             // Burada GameState'i güncelle (overlay her eklendiğinde çalışır)
             // Bu blok, oyun bittiğinde bir kere çalışır
             WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Oyun içinde zaten bonus eklenmiş mi kontrol et
+              if (runnerGame.bonusAdded) return;
+              runnerGame.bonusAdded = true;
+
               // Oyun skoruna göre coin ve XP hesapla
               final coinBonus =
                   (runnerGame.score / 100).floor(); // Her 100 puan için 1 coin
