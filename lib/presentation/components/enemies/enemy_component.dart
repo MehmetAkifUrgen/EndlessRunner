@@ -107,12 +107,13 @@ class EnemyComponent extends PositionComponent
     }
   }
 
-  bool hit(double damage) {
-    health -= damage.ceil();
+  // Hasar alma metodu
+  bool takeDamage(double damage) {
+    health -= damage.ceil(); // int değere çevirdik
     isHit = true;
-    hitAnimationTimer = 0.2; // 200ms vurulma efekti
+    hitAnimationTimer = 0.2;
 
-    // Vurulma parçacık efekti ekle
+    // Darbe efekti oluştur
     if (gameRef.particleSystem != null) {
       final particleColors = [
         Colors.red.shade300,
@@ -121,23 +122,28 @@ class EnemyComponent extends PositionComponent
       ];
 
       gameRef.particleSystem.createParticles(
-        count: 10,
+        count: 5, // Performans için 10'dan 5'e düşürüldü
         position: Vector2(position.x, position.y - size.y / 2),
-        particleSize: Vector2(5, 5),
+        particleSize: Vector2(3, 3), // Performans için boyutu küçülttük
         colors: particleColors,
-        speed: 100,
-        gravity: 400,
-        lifespan: 0.5,
+        speed: 80,
+        gravity: 300,
+        lifespan: 0.3, // Performans için kısalttık
       );
     }
 
-    // Eğer düşman öldüyse, öldü olarak işaretle ve parçacık efekti göster
+    // Eğer düşman öldüyse
     if (health <= 0) {
       die();
-      return true;
+      return true; // Öldürüldü
     }
 
-    return false;
+    return false; // Hala hayatta
+  }
+
+  // Hasar alma ve çarpışma için kullanılan hit metodu
+  bool hit(double damage) {
+    return takeDamage(damage);
   }
 
   void die() {
@@ -200,6 +206,82 @@ class EnemyComponent extends PositionComponent
         Rect.fromLTWH(0, 0, size.x, size.y),
         hitPaint,
       );
+    }
+
+    // Can barı - düşman hasar aldığında veya isHit aktif olduğunda göster
+    if (isHit || health < enemy.health) {
+      // Can barının arkaplanı (gri)
+      final backgroundPaint = Paint()
+        ..color = Colors.grey.shade800
+        ..style = PaintingStyle.fill;
+
+      // Can barı için dikdörtgen (arkaplan)
+      final barWidth = size.x * 1.2;
+      final barHeight = size.y * 0.1;
+      final barLeft = -size.x * 0.1; // Düşmanı ortalar
+      final barTop = -size.y * 0.2; // Düşmanın üstünde gösterir
+
+      final backgroundRect =
+          Rect.fromLTWH(barLeft, barTop, barWidth, barHeight);
+      canvas.drawRRect(
+          RRect.fromRectAndCorners(
+            backgroundRect,
+            topLeft: Radius.circular(barHeight / 2),
+            topRight: Radius.circular(barHeight / 2),
+            bottomLeft: Radius.circular(barHeight / 2),
+            bottomRight: Radius.circular(barHeight / 2),
+          ),
+          backgroundPaint);
+
+      // Can barının kendisi (yeşilden kırmızıya doğru renk değişimi)
+      final healthRatio = health / enemy.health;
+      final currentBarWidth = barWidth * healthRatio;
+
+      // Sağlık durumuna göre renk değişimi (yeşil -> sarı -> kırmızı)
+      Color healthColor;
+      if (healthRatio > 0.6) {
+        healthColor = Colors.green;
+      } else if (healthRatio > 0.3) {
+        healthColor = Colors.yellow;
+      } else {
+        healthColor = Colors.red;
+      }
+
+      final healthPaint = Paint()
+        ..color = healthColor
+        ..style = PaintingStyle.fill;
+
+      // Can barı çizimi
+      final healthRect =
+          Rect.fromLTWH(barLeft, barTop, currentBarWidth, barHeight);
+      canvas.drawRRect(
+          RRect.fromRectAndCorners(
+            healthRect,
+            topLeft: Radius.circular(barHeight / 2),
+            topRight: Radius.circular(barHeight / 2),
+            bottomLeft: Radius.circular(barHeight / 2),
+            bottomRight: Radius.circular(barHeight / 2),
+          ),
+          healthPaint);
+
+      // Kalan can değerini metin olarak gösterme
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: '$health/${enemy.health}',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: barHeight * 0.7,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+
+      textPainter.layout();
+      textPainter.paint(
+          canvas,
+          Offset(barLeft + (barWidth - textPainter.width) / 2,
+              barTop + (barHeight - textPainter.height) / 2));
     }
 
     canvas.restore();
@@ -580,9 +662,5 @@ class EnemyComponent extends PositionComponent
       Rect.fromLTWH(size.x * 0.55, size.y * 0.7, size.x * 0.1, size.y * 0.3),
       limbPaint,
     );
-  }
-
-  void takeDamage(int damage) {
-    hit(damage.toDouble());
   }
 }

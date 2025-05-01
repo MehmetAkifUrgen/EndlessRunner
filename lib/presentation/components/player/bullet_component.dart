@@ -124,21 +124,37 @@ class BulletComponent extends PositionComponent
 
     // Düşmana çarptıysa
     if (other is EnemyComponent) {
-      // Düşmana hasar ver
-      final wasKilled = other.hit(bullet.damage);
-
-      // Çarpışma efekti
-      createHitEffect(intersectionPoints.first);
-
-      // Eğer patlayıcı mermiyse ve düşman öldüyse çevresindeki düşmanlara da hasar ver
-      if (bullet.isExplosive && wasKilled) {
-        _createExplosion();
+      // Düşmanın hitbox'u ile doğrudan çarpışma kontrolü
+      bool hasHit = false;
+      for (final point in intersectionPoints) {
+        // Eğer çarpışma noktası düşman bileşeninin içindeyse
+        if (point.x >= other.position.x - other.size.x / 2 &&
+            point.x <= other.position.x + other.size.x / 2 &&
+            point.y >= other.position.y - other.size.y &&
+            point.y <= other.position.y) {
+          hasHit = true;
+          break;
+        }
       }
 
-      // Eğer mermi delici değilse, mermiyi yok et
-      if (!bullet.isPenetrating) {
-        isActive = false;
-        removeFromParent();
+      // Çarpışma varsa düşmana hasar ver
+      if (hasHit) {
+        // Düşmana hasar ver
+        final wasKilled = other.hit(bullet.damage);
+
+        // Çarpışma efekti
+        createHitEffect(intersectionPoints.first);
+
+        // Eğer patlayıcı mermiyse ve düşman öldüyse çevresindeki düşmanlara da hasar ver
+        if (bullet.isExplosive && wasKilled) {
+          _createExplosion();
+        }
+
+        // Eğer mermi delici değilse, mermiyi yok et
+        if (!bullet.isPenetrating) {
+          isActive = false;
+          removeFromParent();
+        }
       }
     }
   }

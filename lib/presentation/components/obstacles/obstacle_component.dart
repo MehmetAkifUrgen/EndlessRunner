@@ -107,6 +107,24 @@ class ObstacleComponent extends PositionComponent
       case ObstacleType.hole:
         _renderHole(canvas);
         break;
+      case ObstacleType.spikes:
+        _renderSpikes(canvas);
+        break;
+      case ObstacleType.laserGrid:
+        _renderLaserGrid(canvas);
+        break;
+      case ObstacleType.fireWall:
+        _renderFireWall(canvas);
+        break;
+      case ObstacleType.electricField:
+        _renderElectricField(canvas);
+        break;
+      case ObstacleType.movingBlade:
+        _renderMovingBlade(canvas);
+        break;
+      case ObstacleType.drone:
+        _renderDrone(canvas);
+        break;
     }
   }
 
@@ -312,6 +330,481 @@ class ObstacleComponent extends PositionComponent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
+  }
+
+  void _renderSpikes(Canvas canvas) {
+    // Gölge
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(5, -size.y + 5, size.x, size.y),
+        const Radius.circular(2),
+      ),
+      _shadowPaint,
+    );
+
+    // Temel platform
+    final basePaint = Paint()..color = Colors.grey.shade800;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, -size.y * 0.5, size.x, size.y * 0.5),
+        const Radius.circular(2),
+      ),
+      basePaint,
+    );
+
+    // Dikenleri çiz
+    final spikePaint = Paint()..color = Colors.red.shade800;
+    final spikeCount = 6;
+    final spikeWidth = size.x / spikeCount;
+
+    for (int i = 0; i < spikeCount; i++) {
+      final spikeHeight = size.y * 0.7 + math.sin(_animTime * 2 + i) * 5;
+      final spikePath = Path()
+        ..moveTo(i * spikeWidth, -size.y * 0.5)
+        ..lineTo((i + 0.5) * spikeWidth, -size.y - spikeHeight * 0.2)
+        ..lineTo((i + 1) * spikeWidth, -size.y * 0.5)
+        ..close();
+
+      canvas.drawPath(spikePath, spikePaint);
+    }
+
+    // Kenar çizgileri
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, -size.y * 0.5, size.x, size.y * 0.5),
+        const Radius.circular(2),
+      ),
+      _strokePaint,
+    );
+  }
+
+  void _renderLaserGrid(Canvas canvas) {
+    // Gölge
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(5, -size.y + 5, size.x, size.y),
+        const Radius.circular(5),
+      ),
+      _shadowPaint,
+    );
+
+    // Lazer cihazları (üst ve alt)
+    final devicePaint = Paint()..color = Colors.grey.shade800;
+
+    // Üst cihaz
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, -size.y, size.x, size.y * 0.15),
+        const Radius.circular(3),
+      ),
+      devicePaint,
+    );
+
+    // Alt cihaz
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, -size.y * 0.15, size.x, size.y * 0.15),
+        const Radius.circular(3),
+      ),
+      devicePaint,
+    );
+
+    // Lazer ışınları
+    final pulseEffect = math.sin(_animTime * 8).abs() * 0.5 + 0.5;
+    final laserPaint = Paint()
+      ..color = Colors.red.withOpacity(0.7 * pulseEffect)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    // Lazer ışık efekti
+    final glowPaint = Paint()
+      ..color = Colors.red.withOpacity(0.3 * pulseEffect)
+      ..strokeWidth = 6.0
+      ..style = PaintingStyle.stroke
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * pulseEffect);
+
+    const laserCount = 5;
+    final laserGap = size.x / (laserCount + 1);
+
+    for (int i = 1; i <= laserCount; i++) {
+      final x = i * laserGap;
+
+      // Önce ışık efekti
+      canvas.drawLine(
+        Offset(x, -size.y),
+        Offset(x, -size.y * 0.15),
+        glowPaint,
+      );
+
+      // Sonra ana lazer
+      canvas.drawLine(
+        Offset(x, -size.y),
+        Offset(x, -size.y * 0.15),
+        laserPaint,
+      );
+    }
+
+    // Cihaz detayları
+    final detailPaint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.fill;
+
+    for (int i = 1; i <= laserCount; i++) {
+      final x = i * laserGap;
+      // Üst ışık
+      canvas.drawCircle(
+        Offset(x, -size.y + size.y * 0.075),
+        size.x * 0.03,
+        detailPaint,
+      );
+      // Alt ışık
+      canvas.drawCircle(
+        Offset(x, -size.y * 0.075),
+        size.x * 0.03,
+        detailPaint,
+      );
+    }
+  }
+
+  void _renderFireWall(Canvas canvas) {
+    // Ateş duvarı temeli
+    final basePaint = Paint()..color = Colors.brown.shade900;
+    canvas.drawRect(
+      Rect.fromLTWH(0, -size.y * 0.1, size.x, size.y * 0.1),
+      basePaint,
+    );
+
+    // Ateş efekti
+    final fireCount = (size.x / 15).ceil();
+
+    for (int i = 0; i < fireCount; i++) {
+      final offset = 2.0 * math.sin(_animTime * 3 + i);
+      final fireHeight = size.y * 0.8 + math.sin(_animTime * 5 + i * 2) * 10;
+
+      // Alev yolu
+      final firePath = Path();
+      firePath.moveTo(i * size.x / fireCount, -size.y * 0.1);
+
+      // Alev dalgaları
+      for (int j = 1; j < 8; j++) {
+        final waveX = i * size.x / fireCount +
+            size.x / (fireCount * 2) +
+            math.sin(_animTime * 4 + j + i) * 5;
+        final waveY = -size.y * 0.1 -
+            j * fireHeight / 8 +
+            math.sin(_animTime * 3 + j * 2 + i) * 3;
+
+        firePath.quadraticBezierTo(
+            waveX, waveY - 5, (i + 0.5) * size.x / fireCount, waveY);
+      }
+
+      // Aleve devam et
+      firePath.quadraticBezierTo((i + 0.5) * size.x / fireCount + 3,
+          -size.y - fireHeight, (i + 1) * size.x / fireCount, -size.y * 0.1);
+
+      firePath.close();
+
+      // Alev renk gradyanı
+      final gradient = RadialGradient(
+        center: Alignment(0.0, 0.5),
+        radius: 1.0,
+        colors: [
+          Colors.yellow,
+          Colors.orange,
+          Colors.red.shade900,
+        ],
+        stops: const [0.1, 0.5, 0.9],
+      ).createShader(
+        Rect.fromLTWH(i * size.x / fireCount, -size.y - fireHeight,
+            size.x / fireCount, size.y + fireHeight),
+      );
+
+      final firePaint = Paint()
+        ..shader = gradient
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(firePath, firePaint);
+    }
+
+    // Ateş ışık efekti
+    final glowPaint = Paint()
+      ..color = Colors.orange.withOpacity(0.3)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 15);
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, -size.y, size.x, size.y),
+      glowPaint,
+    );
+  }
+
+  void _renderElectricField(Canvas canvas) {
+    // Ana elektrik alanı
+    final fieldPaint = Paint()
+      ..color = Colors.blue.shade800.withOpacity(0.6)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, -size.y, size.x, size.y),
+        const Radius.circular(10),
+      ),
+      fieldPaint,
+    );
+
+    // Elektrik efekti
+    final pulseEffect = math.sin(_animTime * 10).abs() * 0.5 + 0.5;
+    final electricPaint = Paint()
+      ..color = Colors.lightBlue.shade100.withOpacity(0.8 * pulseEffect)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    // Rastgele elektrik yolları
+    final rng = math.Random(_animTime.floor() * 10);
+    final pathCount = 5 + (pulseEffect * 5).floor();
+
+    for (int i = 0; i < pathCount; i++) {
+      final electricPath = Path();
+      final startX = rng.nextDouble() * size.x;
+      electricPath.moveTo(startX, -size.y);
+
+      var currentX = startX;
+      var currentY = -size.y;
+
+      while (currentY < 0) {
+        final nextX = currentX + (rng.nextDouble() - 0.5) * 30;
+        final nextY = currentY + rng.nextDouble() * 20;
+
+        electricPath.lineTo(
+          nextX.clamp(0, size.x),
+          nextY.clamp(-size.y, 0),
+        );
+
+        currentX = nextX.clamp(0, size.x);
+        currentY = nextY;
+      }
+
+      canvas.drawPath(electricPath, electricPaint);
+    }
+
+    // Kenar parlaması
+    final glowPaint = Paint()
+      ..color = Colors.blue.withOpacity(0.2 + 0.2 * pulseEffect)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * pulseEffect);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(2, -size.y + 2, size.x - 4, size.y - 4),
+        const Radius.circular(8),
+      ),
+      glowPaint,
+    );
+
+    // Elektrik jeneratör cihazı
+    final devicePaint = Paint()..color = Colors.grey.shade800;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(size.x * 0.4, -size.y * 0.1, size.x * 0.2, size.y * 0.1),
+        const Radius.circular(3),
+      ),
+      devicePaint,
+    );
+
+    // Işık göstergesi
+    final lightPaint = Paint()..color = Colors.blue.withOpacity(pulseEffect);
+    canvas.drawCircle(
+      Offset(size.x * 0.5, -size.y * 0.05),
+      size.x * 0.03,
+      lightPaint,
+    );
+  }
+
+  void _renderMovingBlade(Canvas canvas) {
+    // Dönme animasyonu
+    final rotationAngle = _animTime * 10;
+
+    canvas.save();
+    // Merkeze taşı, döndür, sonra pozisyona geri getir
+    canvas.translate(size.x / 2, -size.y / 2);
+    canvas.rotate(rotationAngle);
+    canvas.translate(-size.x / 2, size.y / 2);
+
+    // Bıçak gölgesi
+    final shadowPath = Path()
+      ..addOval(Rect.fromLTWH(5, -size.y + 5, size.x, size.y));
+    canvas.drawPath(shadowPath, _shadowPaint);
+
+    // Bıçak merkezi
+    final centerPaint = Paint()..color = Colors.grey.shade800;
+    canvas.drawCircle(
+      Offset(size.x / 2, -size.y / 2),
+      size.x * 0.15,
+      centerPaint,
+    );
+
+    // Bıçak kanatları - keskin ve tehlikeli
+    final bladePaint = Paint()..color = Colors.grey.shade400;
+    final bladeEdgePaint = Paint()..color = Colors.grey.shade200;
+
+    for (int i = 0; i < 4; i++) {
+      final bladeAngle = math.pi / 2 * i;
+      final bladePath = Path();
+
+      bladePath.moveTo(size.x / 2, -size.y / 2);
+      bladePath.lineTo(
+        size.x / 2 + math.cos(bladeAngle) * size.x * 0.4,
+        -size.y / 2 + math.sin(bladeAngle) * size.y * 0.4,
+      );
+      bladePath.lineTo(
+        size.x / 2 + math.cos(bladeAngle + 0.4) * size.x * 0.35,
+        -size.y / 2 + math.sin(bladeAngle + 0.4) * size.y * 0.35,
+      );
+      bladePath.close();
+
+      canvas.drawPath(bladePath, bladePaint);
+
+      // Keskin kenarlar
+      canvas.drawLine(
+        Offset(
+          size.x / 2 + math.cos(bladeAngle) * size.x * 0.1,
+          -size.y / 2 + math.sin(bladeAngle) * size.y * 0.1,
+        ),
+        Offset(
+          size.x / 2 + math.cos(bladeAngle) * size.x * 0.4,
+          -size.y / 2 + math.sin(bladeAngle) * size.y * 0.4,
+        ),
+        bladeEdgePaint..strokeWidth = 2,
+      );
+    }
+
+    // Merkez detayı - metal vida görünümü
+    final centerDetailPaint = Paint()..color = Colors.grey.shade600;
+    canvas.drawCircle(
+      Offset(size.x / 2, -size.y / 2),
+      size.x * 0.08,
+      centerDetailPaint,
+    );
+
+    // Vida çizgisi
+    canvas.drawLine(
+      Offset(size.x / 2 - size.x * 0.06, -size.y / 2),
+      Offset(size.x / 2 + size.x * 0.06, -size.y / 2),
+      Paint()
+        ..color = Colors.black
+        ..strokeWidth = 2,
+    );
+
+    canvas.restore();
+  }
+
+  void _renderDrone(Canvas canvas) {
+    // Drone havada süzülme hareketi
+    final hoverOffset = math.sin(_animTime * 2) * 5;
+
+    // Gölge - drone yükseldikçe küçülür
+    final shadowScale = math.max(0.6, 1.0 - hoverOffset.abs() / 20);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.x / 2, 0),
+        width: size.x * 0.6 * shadowScale,
+        height: size.y * 0.2 * shadowScale,
+      ),
+      _shadowPaint,
+    );
+
+    // Drone gövdesi
+    final bodyPaint = Paint()..color = Colors.grey.shade800;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(size.x * 0.2, -size.y * 0.5 - hoverOffset, size.x * 0.6,
+            size.y * 0.2),
+        const Radius.circular(5),
+      ),
+      bodyPaint,
+    );
+
+    // Drone kanatları/pervaneler
+    final wingPaint = Paint()..color = Colors.grey.shade600;
+
+    // Sol pervane
+    _renderDronePropeller(
+      canvas,
+      Offset(size.x * 0.25, -size.y * 0.5 - hoverOffset),
+      _animTime * 20,
+      wingPaint,
+    );
+
+    // Sağ pervane
+    _renderDronePropeller(
+      canvas,
+      Offset(size.x * 0.75, -size.y * 0.5 - hoverOffset),
+      _animTime * 20 + math.pi,
+      wingPaint,
+    );
+
+    // Işıklar
+    final lightPulse = math.sin(_animTime * 5).abs();
+    final lightPaint = Paint()
+      ..color = Colors.red.withOpacity(0.7 + lightPulse * 0.3);
+
+    canvas.drawCircle(
+      Offset(size.x * 0.3, -size.y * 0.45 - hoverOffset),
+      size.x * 0.03,
+      lightPaint,
+    );
+
+    canvas.drawCircle(
+      Offset(size.x * 0.7, -size.y * 0.45 - hoverOffset),
+      size.x * 0.03,
+      lightPaint,
+    );
+
+    // Kamera lens
+    final cameraPaint = Paint()..color = Colors.black;
+    canvas.drawCircle(
+      Offset(size.x * 0.5, -size.y * 0.4 - hoverOffset),
+      size.x * 0.05,
+      cameraPaint,
+    );
+
+    // Lens yansıması
+    final lensPaint = Paint()..color = Colors.blue.withOpacity(0.8);
+    canvas.drawCircle(
+      Offset(size.x * 0.5, -size.y * 0.4 - hoverOffset),
+      size.x * 0.02,
+      lensPaint,
+    );
+  }
+
+  // Drone pervanesi yardımcı metodu
+  void _renderDronePropeller(
+      Canvas canvas, Offset center, double rotation, Paint paint) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+
+    // Pervane merkezi
+    canvas.drawCircle(
+      Offset.zero,
+      size.x * 0.05,
+      paint,
+    );
+
+    // Pervane kanatları
+    for (int i = 0; i < 3; i++) {
+      final angle = (math.pi * 2 / 3) * i;
+      final bladePath = Path()
+        ..moveTo(0, 0)
+        ..lineTo(
+            math.cos(angle) * size.x * 0.15, math.sin(angle) * size.x * 0.15)
+        ..lineTo(math.cos(angle + 0.3) * size.x * 0.12,
+            math.sin(angle + 0.3) * size.x * 0.12)
+        ..close();
+
+      canvas.drawPath(bladePath, paint);
+    }
+
+    canvas.restore();
   }
 }
 

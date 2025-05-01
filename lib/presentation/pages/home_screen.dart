@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/game_state.dart';
 import '../../services/ad_service.dart'; // Güncellendi
-import 'game_screen.dart';
-import 'theme_shop_screen.dart';
+import 'package:flame/game.dart'; // GameWidget için bu paketi ekliyorum
+import 'game_screen.dart'; // RunnerGame'in tanımlandığı dosya
 //import '../../services/audio_service.dart'; // Güncellendi
 import 'character_screen.dart';
+import 'theme_shop_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);

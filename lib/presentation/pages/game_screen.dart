@@ -35,9 +35,9 @@ import '../../../domain/entities/weapon.dart';
 class RunnerGame extends FlameGame
     with HasCollisionDetection, HasGameRef, TapCallbacks, KeyboardEvents {
   // Oyun değişkenleri
-  double groundHeight = 80.0;
-  double gameSpeed = 300.0;
-  double initialGameSpeed = 300.0;
+  double groundHeight = 40.0;
+  double gameSpeed = 200.0;
+  double initialGameSpeed = 200.0;
   int score = 0;
   int highScore = 0;
   int lives = 3;
@@ -55,13 +55,15 @@ class RunnerGame extends FlameGame
 
   // Oyun öğeleri
   PlayerComponent? player; // Public yapıldı
-  late TextComponent scoreText;
+  TextComponent? scoreText; // Nullable hale getirildi
   final List<ObstacleComponent> obstacles = [];
   final List<CollectibleComponent> collectibles = [];
 
   // Zamanlayıcılar
-  late Timer obstacleSpawnTimer;
-  late Timer collectibleSpawnTimer;
+  Timer? obstacleSpawnTimer;
+  Timer? collectibleSpawnTimer;
+  Timer? enemySpawnTimer;
+  Timer? platformSpawnTimer;
 
   // FPS hesaplama
   double _fps = 0;
@@ -74,8 +76,8 @@ class RunnerGame extends FlameGame
 
   // Zorluk seviyeleri için ekstra değişkenler
   double gameTime = 0; // Toplam oyun süresi
-  double gameSpeedIncreaseRate = 10; // Saniyede artış hızı
-  double maxGameSpeed = 400; // Maksimum hız limiti
+  double gameSpeedIncreaseRate = 5; // Saniyede artış hızı düşürüldü
+  double maxGameSpeed = 350; // Maksimum hız limiti düşürüldü
   double difficultyMultiplier = 1.0; // Zorluk çarpanı
   int combo = 0; // Combo sistemi
   int maxCombo = 0; // En yüksek combo
@@ -101,8 +103,6 @@ class RunnerGame extends FlameGame
   // Düşman ve platform sistemi için değişkenler
   final List<EnemyComponent> enemies = [];
   final List<PlatformComponent> platforms = [];
-  late Timer enemySpawnTimer;
-  late Timer platformSpawnTimer;
   double lastPlatformY = 0; // Son oluşturulan platformun Y konumu
   double lastPlatformX = 0; // Son oluşturulan platformun X konumu
   int currentLayerLevel =
@@ -123,211 +123,212 @@ class RunnerGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
-    // Mevcut seviyeyi al ve oyun değişkenlerini ayarla
-    if (currentLevel != null) {
-      // Seviye çarpanlarını ayarla
-      levelSpeedMultiplier = currentLevel!.speedMultiplier;
-      levelScoreMultiplier = currentLevel!.scoreMultiplier;
-      levelObstacleFrequency = currentLevel!.obstacleFrequency;
+    try {
+      // Mevcut seviyeyi al ve oyun değişkenlerini ayarla
+      if (currentLevel != null) {
+        // Seviye çarpanlarını ayarla
+        levelSpeedMultiplier = currentLevel!.speedMultiplier;
+        levelScoreMultiplier = currentLevel!.scoreMultiplier;
+        levelObstacleFrequency = currentLevel!.obstacleFrequency;
 
-      // Başlangıç hızını seviyeye göre ayarla
-      initialGameSpeed = 300.0 * levelSpeedMultiplier;
-      gameSpeed = initialGameSpeed;
+        // Başlangıç hızını seviyeye göre ayarla
+        initialGameSpeed = 200.0 * levelSpeedMultiplier;
+        gameSpeed = initialGameSpeed;
 
-      print("Seviye yüklendi: ${currentLevel!.name}, Hız: $gameSpeed");
-    } else {
-      print("UYARI: currentLevel null geldi!");
-      // Varsayılan değerler zaten ayarlı
+        print("Seviye yüklendi: ${currentLevel!.name}, Hız: $gameSpeed");
+      } else {
+        print("UYARI: currentLevel null geldi!");
+        // Varsayılan değerler zaten ayarlı
+      }
+
+      // Parçacık sistemi oluştur
+      particleSystem = ParticleSystem(maxParticles: 50);
+      add(particleSystem);
+
+      // Timer'ları initialize etmek için metod
+      _initializeTimers();
+
+      // Arkaplan - Geliştirilmiş gradient ile zenginleştirme
+      add(
+        RectangleComponent(
+          size: Vector2(size.x, size.y),
+          paint: Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: const [0.0, 0.7, 1.0],
+              // Parametreden gelen temayı kullan
+              colors: _getBackgroundColors(currentTheme),
+            ).createShader(Rect.fromLTWH(0, 0, size.x, size.y)),
+        ),
+      );
+
+      // Güneş efekti
+      final sunPosition = Vector2(size.x * 0.8, size.y * 0.2);
+      final sunSize = size.y * 0.15;
+
+      // Güneş çevresi parlaklık halkası
+      add(
+        CircleComponent(
+          position: sunPosition,
+          radius: sunSize * 1.3,
+          paint: Paint()
+            ..color = Colors.yellow.withOpacity(0.2)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30.0),
+        ),
+      );
+
+      // Güneş
+      add(
+        CircleComponent(
+          position: sunPosition,
+          radius: sunSize,
+          paint: Paint()..color = Colors.yellow.shade600,
+        ),
+      );
+
+      // Dağlar (arka plan) - Parametreden gelen temayı kullan
+      _addMountains(currentTheme);
+
+      // Çimenli yer zemini - Parametreden gelen temayı kullan
+      add(
+        GrassComponent(
+          position: Vector2(0, size.y - groundHeight),
+          size: Vector2(size.x, groundHeight),
+          groundColor: currentTheme?.groundColor,
+        ),
+      );
+
+      // Skor metni
+      scoreText = TextComponent(
+        text: 'SCORE: 0',
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            fontSize: 20,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        position: Vector2(10, 10),
+        anchor: Anchor.topLeft,
+      );
+      add(scoreText!);
+
+      // Mermi sayısı metni
+      final ammoText = TextComponent(
+        text: 'AMMO: 0',
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.yellow,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        position: Vector2(10, 35),
+        anchor: Anchor.topLeft,
+      );
+      add(ammoText);
+
+      // Silah ismi metni
+      final weaponText = TextComponent(
+        text: 'WEAPON: Pistol',
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.orange,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        position: Vector2(10, 55),
+        anchor: Anchor.topLeft,
+      );
+      add(weaponText);
+
+      // Zemin seviyesini kaydet
+      lastPlatformY = size.y - groundHeight;
+
+      // İnsan karakteri oluştur
+      // Varsayılan bir karakter oluştur
+      final defaultCharacter = selectedCharacter ??
+          PlayerCharacter(
+            id: 'default_human',
+            name: 'Default Human',
+            price: 0,
+            isUnlocked: true,
+            primaryColor: Colors.blue,
+            secondaryColor: Colors.lightBlue,
+            attributes: {
+              'jumpPower': 1.0,
+              'speed': 1.0,
+              'dashPower': 1.0,
+              'coinMultiplier': 1.0,
+            },
+          );
+
+      // Her zaman insan oyuncuyu oluştur
+      humanPlayer = HumanPlayerComponent(
+        position: Vector2(size.x * 0.2, size.y - groundHeight),
+        character: defaultCharacter,
+        primaryColor: defaultCharacter.primaryColor,
+        secondaryColor: defaultCharacter.secondaryColor,
+        groundHeight: groundHeight,
+        weapon: Weapon.fromType(WeaponType.pistol),
+      );
+      add(humanPlayer!);
+
+      // Ses servisini başlatmıyoruz, tamamen devre dışı bırakıyoruz
+      // await audioService.initialize();
+    } catch (e) {
+      print("HATA: onLoad sırasında hata oluştu - $e");
     }
-
-    // Parçacık sistemi oluştur
-    particleSystem = ParticleSystem(maxParticles: 300);
-    add(particleSystem);
-
-    // Arkaplan - Geliştirilmiş gradient ile zenginleştirme
-    add(
-      RectangleComponent(
-        size: Vector2(size.x, size.y),
-        paint: Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: const [0.0, 0.7, 1.0],
-            // Parametreden gelen temayı kullan
-            colors: _getBackgroundColors(currentTheme),
-          ).createShader(Rect.fromLTWH(0, 0, size.x, size.y)),
-      ),
-    );
-
-    // Güneş efekti
-    final sunPosition = Vector2(size.x * 0.8, size.y * 0.2);
-    final sunSize = size.y * 0.15;
-
-    // Güneş çevresi parlaklık halkası
-    add(
-      CircleComponent(
-        position: sunPosition,
-        radius: sunSize * 1.3,
-        paint: Paint()
-          ..color = Colors.yellow.withOpacity(0.2)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30.0),
-      ),
-    );
-
-    // Güneş
-    add(
-      CircleComponent(
-        position: sunPosition,
-        radius: sunSize,
-        paint: Paint()..color = Colors.yellow.shade600,
-      ),
-    );
-
-    // Dağlar (arka plan) - Parametreden gelen temayı kullan
-    _addMountains(currentTheme);
-
-    // Çimenli yer zemini - Parametreden gelen temayı kullan
-    add(
-      GrassComponent(
-        position: Vector2(0, size.y - groundHeight),
-        size: Vector2(size.x, groundHeight),
-        groundColor: currentTheme?.groundColor,
-      ),
-    );
-
-    // Bulutlar (dekortif elementler) - Daha fazla bulut ekliyoruz
-    _addClouds(8);
-
-    // Skor metni
-    scoreText = TextComponent(
-      text: 'SCORE: 0',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 20,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      position: Vector2(10, 10),
-      anchor: Anchor.topLeft,
-    );
-    add(scoreText);
-
-    // Mermi sayısı metni
-    final ammoText = TextComponent(
-      text: 'AMMO: 0',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 16,
-          color: Colors.yellow,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      position: Vector2(10, 35),
-      anchor: Anchor.topLeft,
-    );
-    add(ammoText);
-
-    // Silah ismi metni
-    final weaponText = TextComponent(
-      text: 'WEAPON: Pistol',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 16,
-          color: Colors.orange,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      position: Vector2(10, 55),
-      anchor: Anchor.topLeft,
-    );
-    add(weaponText);
-
-    // Engel oluşturma zamanlayıcısı - seviye bazlı frekans
-    obstacleSpawnTimer = Timer(levelObstacleFrequency.toDouble(),
-        onTick: _spawnObstacle, repeat: true);
-
-    // Toplanabilir oluşturma zamanlayıcısı
-    collectibleSpawnTimer = Timer(3, onTick: _spawnCollectible, repeat: true);
-
-    // Düşman oluşturma zamanlayıcısı
-    enemySpawnTimer = Timer(
-      2.0, // İlk düşman 2 saniye sonra
-      onTick: _spawnEnemy,
-      repeat: true,
-    );
-
-    // Platform oluşturma zamanlayıcısı
-    platformSpawnTimer = Timer(
-      3.0, // İlk platform 3 saniye sonra
-      onTick: _spawnPlatform,
-      repeat: true,
-    );
-
-    // Zemin seviyesini kaydet
-    lastPlatformY = size.y - groundHeight;
-
-    // İnsan karakteri oluştur
-    // Varsayılan bir karakter oluştur
-    final defaultCharacter = selectedCharacter ??
-        PlayerCharacter(
-          id: 'default_human',
-          name: 'Default Human',
-          price: 0,
-          isUnlocked: true,
-          primaryColor: Colors.blue,
-          secondaryColor: Colors.lightBlue,
-          attributes: {
-            'jumpPower': 1.0,
-            'speed': 1.0,
-            'dashPower': 1.0,
-            'coinMultiplier': 1.0,
-          },
-        );
-
-    // Her zaman insan oyuncuyu oluştur
-    humanPlayer = HumanPlayerComponent(
-      position: Vector2(size.x * 0.2, size.y - groundHeight),
-      character: defaultCharacter,
-      primaryColor: defaultCharacter.primaryColor,
-      secondaryColor: defaultCharacter.secondaryColor,
-      groundHeight: groundHeight,
-      weapon: Weapon.fromType(WeaponType.pistol),
-    );
-    add(humanPlayer!);
-
-    // Ses servisini başlatmıyoruz, tamamen devre dışı bırakıyoruz
-    // await audioService.initialize();
 
     return super.onLoad();
   }
 
   @override
   void update(double dt) {
-    if (isPaused || isGameOver)
-      return; // Oyun duraklatılmış veya bitmişse güncelleme yapma
+    // Ekstra erken kontrol - oyun durmuşsa veya bitmişse hiçbir güncelleme yapma
+    if (isPaused || isGameOver) {
+      super.update(0); // Minimum update ile çağır
+      return;
+    }
 
-    // dt değerini sınırla - aşırı yüksek dt değerleri hareketleri anlık ışınlanma gibi yapabilir
-    final cappedDt = dt > 0.05 ? 0.05 : dt;
+    // scoreText başlatılmamışsa güncelleme yapma
+    if (scoreText == null) {
+      super.update(0);
+      return;
+    }
 
-    // FPS hesaplama
+    // dt değerini sınırla - aşırı yüksek değerler ani hareketlere sebep olabilir
+    // Önceki 0.05 yerine 0.03'e düşürdük, daha stabil performans için
+    final cappedDt = dt > 0.03 ? 0.03 : dt;
+
+    // FPS hesaplama - her zaman gerekli değil, sadece arada bir güncelle
     _fpsUpdateTime += cappedDt;
     if (_fpsUpdateTime >= _fpsUpdateInterval) {
       _fps = 1.0 / cappedDt;
       _fpsUpdateTime = 0;
     }
 
-    // Zamanlayıcıları güncelle
+    // Performans için gameTime güncelleme sıklığını azalt
     gameTime += cappedDt;
-    obstacleSpawnTimer.update(cappedDt);
-    collectibleSpawnTimer.update(cappedDt);
-    enemySpawnTimer.update(cappedDt);
-    platformSpawnTimer.update(cappedDt);
+
+    // Zamanlayıcıları güncelle - bu kritik olduğu için her frame'de yapılmalı
+    try {
+      obstacleSpawnTimer?.update(cappedDt);
+      collectibleSpawnTimer?.update(cappedDt);
+      enemySpawnTimer?.update(cappedDt);
+      platformSpawnTimer?.update(cappedDt);
+    } catch (e) {
+      print("HATA: Timer güncellenirken hata oluştu: $e");
+      _initializeTimers(); // Hata durumunda yeniden initialize et
+    }
 
     // Skor güncellemesi (zamanla artan skor)
+    // Skor hesaplama basitleştirildi
     score +=
-        (10 * cappedDt * difficultyMultiplier * levelScoreMultiplier).toInt();
-    scoreText.text = 'SCORE: $score';
+        (5 * cappedDt * difficultyMultiplier * levelScoreMultiplier).toInt();
+    scoreText!.text = 'SCORE: $score';
 
     // Güç-yükseltmelerini güncelle
     _updatePowerUps(cappedDt);
@@ -378,57 +379,56 @@ class RunnerGame extends FlameGame
     }
 
     // Performans optimizasyonu: Sadece ekranda görünür bileşenleri güncelle
-    final viewportRect = Rect.fromLTWH(0, 0, size.x + 100, size.y);
 
-    // Sadece ekranda veya yakın olan engelleri güncelle
-    for (final obstacle in [...obstacles]) {
-      if (obstacle.position.x < size.x + 200) {
+    // Sadece ekranda veya yakın olan engelleri güncelle - Optimize edilmiş döngü
+    for (int i = obstacles.length - 1; i >= 0; i--) {
+      final obstacle = obstacles[i];
+      if (obstacle.position.x < -obstacle.size.x) {
+        // Ekrandan tamamen çıkmış engeli kaldır
+        obstacles.removeAt(i);
+        obstacle.removeFromParent();
+      } else if (obstacle.position.x < size.x + 100) {
+        // Sadece ekranda veya yakında olan engelleri güncelle
         obstacle.update(cappedDt);
       }
-
-      // Ekrandan çıkan engelleri temizle
-      if (obstacle.position.x < -obstacle.size.x) {
-        obstacles.remove(obstacle);
-        obstacle.removeFromParent();
-      }
     }
 
-    // Sadece ekranda veya yakın olan toplanabilir öğeleri güncelle
-    for (final collectible in [...collectibles]) {
-      if (collectible.position.x < size.x + 200) {
+    // Sadece ekranda veya yakın olan toplanabilir öğeleri güncelle - Optimize edilmiş döngü
+    for (int i = collectibles.length - 1; i >= 0; i--) {
+      final collectible = collectibles[i];
+      if (collectible.position.x < -collectible.size.x) {
+        // Ekrandan tamamen çıkmış öğeyi kaldır
+        collectibles.removeAt(i);
+        collectible.removeFromParent();
+      } else if (collectible.position.x < size.x + 100) {
+        // Sadece ekranda veya yakında olan öğeleri güncelle
         collectible.update(cappedDt);
       }
-
-      // Ekrandan çıkan toplanabilir öğeleri temizle
-      if (collectible.position.x < -collectible.size.x) {
-        collectibles.remove(collectible);
-        collectible.removeFromParent();
-      }
     }
 
-    // Sadece ekranda veya yakın olan düşmanları güncelle
-    for (final enemy in [...enemies]) {
-      if (enemy.position.x < size.x + 200) {
+    // Sadece ekranda veya yakın olan düşmanları güncelle - Optimize edilmiş döngü
+    for (int i = enemies.length - 1; i >= 0; i--) {
+      final enemy = enemies[i];
+      if (enemy.position.x < -enemy.size.x) {
+        // Ekrandan tamamen çıkmış düşmanı kaldır
+        enemies.removeAt(i);
+        enemy.removeFromParent();
+      } else if (enemy.position.x < size.x + 100) {
+        // Sadece ekranda veya yakında olan düşmanları güncelle
         enemy.update(cappedDt);
       }
-
-      // Ekrandan çıkan düşmanları temizle
-      if (enemy.position.x < -enemy.size.x) {
-        enemies.remove(enemy);
-        enemy.removeFromParent();
-      }
     }
 
-    // Sadece ekranda veya yakın olan platformları güncelle
-    for (final platform in [...platforms]) {
-      if (platform.position.x < size.x + 200) {
-        platform.update(cappedDt);
-      }
-
-      // Ekrandan çıkan platformları temizle
+    // Sadece ekranda veya yakın olan platformları güncelle - Optimize edilmiş döngü
+    for (int i = platforms.length - 1; i >= 0; i--) {
+      final platform = platforms[i];
       if (platform.position.x < -platform.size.x) {
-        platforms.remove(platform);
+        // Ekrandan tamamen çıkmış platformu kaldır
+        platforms.removeAt(i);
         platform.removeFromParent();
+      } else if (platform.position.x < size.x + 100) {
+        // Sadece ekranda veya yakında olan platformları güncelle
+        platform.update(cappedDt);
       }
     }
 
@@ -484,7 +484,6 @@ class RunnerGame extends FlameGame
             80 + random.nextDouble() * 80,
             40 + random.nextDouble() * 30,
           ),
-          speed: 20 + random.nextDouble() * 30,
         ),
       );
     }
@@ -496,8 +495,19 @@ class RunnerGame extends FlameGame
       final random = math.Random();
       final obstacleType = ObstacleType.values[
           random.nextInt(ObstacleType.values.length)]; // Rastgele engel türü
+
+      // Rastgele Y pozisyonu belirle
+      double obstacleY;
+      if (random.nextBool()) {
+        // %50 ihtimalle zeminde
+        obstacleY = size.y - groundHeight;
+      } else {
+        // %50 ihtimalle biraz yukarıda (kayarak geçilebilir?)
+        obstacleY = size.y - groundHeight - 60;
+      }
+
       final obstacle = ObstacleComponent(
-        position: Vector2(size.x + 50, size.y - groundHeight),
+        position: Vector2(size.x + 50, obstacleY), // Güncellenmiş Y pozisyonu
         type: obstacleType,
         color: currentTheme?.obstacleColor ?? Colors.brown, // Tema rengi
         game: this,
@@ -653,7 +663,7 @@ class RunnerGame extends FlameGame
         });
         break;
     }
-    scoreText.text = 'SCORE: $score';
+    scoreText!.text = 'SCORE: $score';
   }
 
   void _updatePowerUps(double dt) {
@@ -717,7 +727,12 @@ class RunnerGame extends FlameGame
     combo = 0; // Combo sıfırlanır
     lives--;
     print("Lives decremented. New lives: $lives"); // Azaltma sonrası logla
-    onLifeLost?.call(); // UI güncellemesi için callback
+
+    // Callback'i çağır (null değilse)
+    if (onLifeLost != null) {
+      onLifeLost!();
+    }
+
     player?.startBlinking(); // Oyuncuyu yanıp söndür
 
     if (lives <= 0) {
@@ -739,24 +754,22 @@ class RunnerGame extends FlameGame
     // Game over overlay'ini etkinleştir
     overlays.add('game_over');
     overlays.remove('pause_button');
-    overlays.remove('game_controls');
+    // overlays.remove('game_controls'); // Kontroller görünür kalsın
 
-    onGameOver?.call();
-
-    if (buildContext != null) {
-      final gameState = Provider.of<GameState>(buildContext!, listen: false);
-      if (score > gameState.highScore) {
-        // gameState.setHighScore(score); // GameState'de setHighScore yok
-        highScore = score;
-        print("Yeni Yüksek Skor Ayarlandı (Yerel): $highScore");
-        // gameState.saveHighScore(score); // varsayımsal kaydetme metodu
-      }
-      print(
-          "Oyun Bitti! Skor: $score, En Yüksek Skor: ${gameState.highScore}, Max Combo: $maxCombo");
-    } else {
-      print(
-          "Oyun Bitti! Skor: $score, En Yüksek Skor: $highScore (Context yok), Max Combo: $maxCombo");
+    // Callback'i çağır (null değilse)
+    if (onGameOver != null) {
+      onGameOver!();
     }
+
+    // Yüksek skoru kontrol et ve güncelle (artık context olmadan)
+    if (score > highScore) {
+      highScore = score; // Oyunun kendi içindeki yüksek skor bilgisini güncelle
+      print("Yeni Yüksek Skor Ayarlandı (Oyun İçi): $highScore");
+      // TODO: Bu yüksek skoru Provider veya başka bir state management ile globale kaydetmek gerekebilir.
+      // Bu işlem GameScreen widget'ı içinde veya overlay'de yapılabilir.
+    }
+    print(
+        "Oyun Bitti! Skor: $score, En Yüksek Skor: $highScore, Max Combo: $maxCombo");
   }
 
   void restartGame() {
@@ -797,15 +810,49 @@ class RunnerGame extends FlameGame
     slowMotionTimer = 0;
     showLevelUpMessage = false; // Seviye mesajını gizle
 
+    // Karakteri yeniden oluştur
+    // Mevcut humanPlayer'ı kaldır
+    if (humanPlayer != null) {
+      humanPlayer!.removeFromParent();
+      humanPlayer = null;
+    }
+
+    // Yeni humanPlayer oluştur
+    final defaultCharacter = selectedCharacter ??
+        PlayerCharacter(
+          id: 'default_human',
+          name: 'Default Human',
+          price: 0,
+          isUnlocked: true,
+          primaryColor: Colors.blue,
+          secondaryColor: Colors.lightBlue,
+          attributes: {
+            'jumpPower': 1.0,
+            'speed': 1.0,
+            'dashPower': 1.0,
+            'coinMultiplier': 1.0,
+          },
+        );
+
+    humanPlayer = HumanPlayerComponent(
+      position: Vector2(size.x * 0.2, size.y - groundHeight),
+      character: defaultCharacter,
+      primaryColor: defaultCharacter.primaryColor,
+      secondaryColor: defaultCharacter.secondaryColor,
+      groundHeight: groundHeight,
+      weapon: Weapon.fromType(WeaponType.pistol),
+    );
+    add(humanPlayer!);
+
     // Zamanlayıcıları sıfırla ve başlat
-    obstacleSpawnTimer.stop();
-    obstacleSpawnTimer.start();
-    collectibleSpawnTimer.stop();
-    collectibleSpawnTimer.start();
-    enemySpawnTimer.stop();
-    enemySpawnTimer.start();
-    platformSpawnTimer.stop();
-    platformSpawnTimer.start();
+    obstacleSpawnTimer?.stop();
+    obstacleSpawnTimer?.start();
+    collectibleSpawnTimer?.stop();
+    collectibleSpawnTimer?.start();
+    enemySpawnTimer?.stop();
+    enemySpawnTimer?.start();
+    platformSpawnTimer?.stop();
+    platformSpawnTimer?.start();
 
     // Ses kapatıldı
     // audioService.playMusic(MusicTrack.game);
@@ -858,16 +905,16 @@ class RunnerGame extends FlameGame
     levelObstacleFrequency = nextLevel.obstacleFrequency;
 
     // Oyun hızını yeni seviyeye göre ayarla
-    initialGameSpeed = 300.0 * levelSpeedMultiplier;
+    initialGameSpeed = 200.0 * levelSpeedMultiplier;
     // İsteğe bağlı: Mevcut hızı da biraz artırabiliriz
     gameSpeed = max(gameSpeed, initialGameSpeed);
     maxGameSpeed *= 1.05; // Max hızı da biraz artır
 
     // Engel zamanlayıcısını yeni frekansla güncelle
-    obstacleSpawnTimer.stop();
+    obstacleSpawnTimer?.stop();
     obstacleSpawnTimer = Timer(levelObstacleFrequency.toDouble(),
         onTick: _spawnObstacle, repeat: true);
-    obstacleSpawnTimer.start();
+    obstacleSpawnTimer?.start();
 
     // Seviye atlama mesajını göster
     showLevelUpMessage = true;
@@ -1063,51 +1110,19 @@ class RunnerGame extends FlameGame
     onLifeLost = callback;
   }
 
-  // BuildContext'i ayarla (Provider erişimi için)
-  @override
-  void onGameResize(Vector2 size) {
-    super.onGameResize(size);
-    // Yeniden boyutlandırmada context'i tekrar almak iyi olabilir ama widget ağacı içinde olmalı
-    // if (buildContext == null && navigatorKey.currentContext != null) {
-    //   buildContext = navigatorKey.currentContext;
-    // }
+  // Mermi eklemek için yeni metod
+  void addAmmo(int amount) {
+    humanPlayer?.ammoSystem.reload(amount);
   }
 
-  // Klavye olaylarını dinle (Web/Desktop için)
-  @override
-  KeyEventResult onKeyEvent(
-      KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    final isKeyDown = event is KeyDownEvent;
-    final isSpace = keysPressed.contains(LogicalKeyboardKey.space);
-    final isP = keysPressed.contains(LogicalKeyboardKey.keyP);
-    final isR = keysPressed.contains(LogicalKeyboardKey.keyR);
-    print(
-        "onKeyEvent triggered! isKeyDown: $isKeyDown, isSpace: $isSpace, isP: $isP, isR: $isR, isGameOver: $isGameOver, isPaused: $isPaused");
-
-    if (isKeyDown) {
-      if (isSpace) {
-        if (isGameOver) {
-          restartGame();
-        } else if (!isPaused) {
-          print("Calling playerJump() from onKeyEvent (Space)...");
-          playerJump();
-        }
-        return KeyEventResult.handled;
-      }
-      if (isP) {
-        if (isPaused && !isGameOver) {
-          resumeGame();
-        } else if (!isPaused && !isGameOver) {
-          pauseGame();
-        }
-        return KeyEventResult.handled;
-      }
-      if (isR && isGameOver) {
-        restartGame();
-        return KeyEventResult.handled;
-      }
-    }
-    return KeyEventResult.ignored;
+  // Düşmandan mermi kutusu düşürme metodu
+  void spawnAmmoDrop(Vector2 position) {
+    final ammoBox = AmmoCollectibleComponent(
+      position: position,
+      size: Vector2(30, 20),
+      ammoAmount: 10,
+    );
+    add(ammoBox);
   }
 
   // Arkaplan renkleri için yardımcı metod
@@ -1133,13 +1148,16 @@ class RunnerGame extends FlameGame
     final enemy = Enemy.createRandomEnemy(currentLevel?.id ?? 1);
 
     // Düşmanın başlangıç pozisyonu - Ekranın sağından
-    final enemyX = size.x + 50; // Ekranın biraz dışından başlat
+    final random = Random();
+    final enemyX = size.x +
+        300 +
+        random.nextDouble() * 200; // Daha uzaktan ve rastgele başlat
 
     // Eğer uçan düşmansa, yüksekte olsun
     double enemyY;
     if (enemy.canFly) {
       // Rastgele bir yükseklik - zemin seviyesinden yukarıda
-      enemyY = size.y - groundHeight - Random().nextDouble() * 200 - 50;
+      enemyY = size.y - groundHeight - random.nextDouble() * 200 - 50;
     } else {
       // Yerde olan düşman
       enemyY = size.y - groundHeight;
@@ -1156,6 +1174,38 @@ class RunnerGame extends FlameGame
 
     enemies.add(enemyComponent);
     add(enemyComponent);
+  }
+
+  // Timer'ları initialize etmek için metod
+  void _initializeTimers() {
+    print("Timer'lar initialize ediliyor...");
+
+    // Eğer daha önce initialize edilmediyse
+    obstacleSpawnTimer = Timer(
+      levelObstacleFrequency.toDouble(),
+      onTick: _spawnObstacle,
+      repeat: true,
+    );
+
+    collectibleSpawnTimer = Timer(
+      3,
+      onTick: _spawnCollectible,
+      repeat: true,
+    );
+
+    enemySpawnTimer = Timer(
+      2.0,
+      onTick: _spawnEnemy,
+      repeat: true,
+    );
+
+    platformSpawnTimer = Timer(
+      3.0,
+      onTick: _spawnPlatform,
+      repeat: true,
+    );
+
+    print("Timer'lar başarıyla initialize edildi");
   }
 
   // Platform oluştur
@@ -1225,571 +1275,154 @@ class RunnerGame extends FlameGame
     platforms.add(platformComponent);
     add(platformComponent);
   }
-
-  // Mermi paketi oluştur (düşman öldüğünde çağrılır)
-  void spawnAmmoDrop(Vector2 position) {
-    // Rastgele bir mermi miktarı belirle (5-15 arası)
-    final ammoAmount = 5 + Random().nextInt(11);
-
-    // Mermi paketini oluştur
-    final ammoCollectible = AmmoCollectibleComponent(
-      position: position,
-      size: Vector2(30, 30),
-      ammoAmount: ammoAmount,
-    );
-
-    add(ammoCollectible);
-  }
-
-  // Güçlendirilmiş silah efekti
-  void activatePoweredWeapon(double duration) {
-    hasPoweredWeapon = true;
-    poweredWeaponTimer = duration;
-
-    // İnsan oyuncuya güçlendirilmiş silah efekti uygula
-    humanPlayer?.powerUpWeapon(duration);
-  }
-
-  // Ateş etme işlemi
-  void playerShoot() {
-    humanPlayer?.shoot();
-  }
-
-  // Kayma işlemi
-  void playerSlide() {
-    humanPlayer?.slide();
-  }
-
-  // Dash işlemi
-  void playerDash() {
-    humanPlayer?.dash();
-  }
-
-  // Silahı yeniden doldur
-  void playerReload() {
-    humanPlayer?.reload();
-  }
-
-  // Silahı değiştir
-  void changeWeapon(WeaponType type) {
-    humanPlayer?.changeWeapon(type);
-  }
-
-  // Mermi ekle
-  void addAmmo(int amount) {
-    humanPlayer?.addAmmo(amount);
-  }
-
-  void quitToMenu() {
-    // Implement the logic to navigate to the main menu
-    print("Quit to menu logic not implemented yet");
-  }
-
-  // Tüm ses çağrılarını kaldırmak için HumanPlayerComponent'i güncelle
-  void modifyHumanPlayerComponent() {
-    if (humanPlayer != null) {
-      // TODO: Eğer HumanPlayerComponent'te ses çağrıları varsa onları devre dışı bırakmak için bir metod
-    }
-  }
 }
 
-// -------- Oyun Ekranı Widget'ı --------
-
-class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
-
-  @override
-  State<GameScreen> createState() => _GameScreenState();
-}
-
-class _GameScreenState extends State<GameScreen> {
-  RunnerGame? _game; // Oyun nesnesi null olabilir
-  bool _isLoading = true; // Başlangıçta yükleniyor durumu
-  bool _showGameOverOverlay = false; // Oyun bitti overlay'i
-  bool _showPauseOverlay = false; // Duraklatma overlay'i
-  int _currentScore = 0;
-  int _currentHighScore = 0;
-  int _currentLives = 3;
-
-  @override
-  void initState() {
-    super.initState();
-    // initState içinde Provider.of kullanmak genellikle önerilmez,
-    // ancak burada oyun nesnesini başlatmak için gerekli olabilir.
-    // Alternatif olarak `didChangeDependencies` veya `Future.delayed` kullanılabilir.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeGame();
-    });
-  }
-
-  void _initializeGame() {
-    // Provider'dan gerekli verileri al
-    final gameState = Provider.of<GameState>(context, listen: false);
-    final selectedCharacter = gameState.currentCharacter;
-    final currentTheme = gameState.currentTheme;
-    final currentLevel = gameState.currentLevel; // GameState'den seviyeyi al
-    final highScore = gameState.highScore; // Yüksek skoru al
-
-    // Seviye null ise bir varsayılan oluştur (güvenlik önlemi)
-    // final levelToUse = currentLevel ?? Level.defaultLevel(); // GameState içinde defaultLevel metodu eklenmeli
-    // GameState'deki _initLevels'da varsayılan seviye zaten ekleniyor olmalı
-    final levelToUse =
-        currentLevel; // Direkt currentLevel kullanılıyor, null ise RunnerGame içinde kontrol edilir
-
-    print(
-        "GameScreen._initializeGame: Karakter: ${selectedCharacter?.id}, Tema: ${currentTheme.name}, Seviye: ${levelToUse?.name ?? 'Varsayılan'}, Yüksek Skor: $highScore");
-
-    // Oyun nesnesini oluştur
-    _game = RunnerGame(
-      selectedCharacter: selectedCharacter,
-      currentTheme: currentTheme,
-      currentLevel:
-          levelToUse, // Null olabilir, RunnerGame constructor'da null kontrolü var
-      highScore: highScore,
-    );
-
-    // Callback'leri ayarla (oyun nesnesi oluşturulduktan sonra)
-    _game!.setOnGameOverCallback(_handleGameOver);
-    _game!.setOnLifeLostCallback(_handleLifeLost);
-    _currentLives = _game!.lives; // Başlangıç canlarını al
-    _currentHighScore = highScore; // Yüksek skoru başlat
-
-    setState(() {
-      _isLoading = false; // Yükleme bitti
-    });
-
-    print("GameScreen: Oyun başlatıldı!");
-  }
-
-  // Can kaybedildiğinde UI'ı güncelle
-  void _handleLifeLost() {
-    if (mounted && _game != null) {
-      // Widget hala ağaçtaysa
-      setState(() {
-        _currentLives = _game!.lives;
-      });
-      print("GameScreen: Can kaybedildi UI güncellendi. Kalan: $_currentLives");
-    }
-  }
-
-  // Oyun bittiğinde UI'ı güncelle
-  void _handleGameOver() {
-    if (mounted && _game != null && context.mounted) {
-      // context.mounted check
-      final gameState = Provider.of<GameState>(context,
-          listen: false); // BuildContext'i kullan
-      setState(() {
-        _showGameOverOverlay = true;
-        _currentScore = _game!.score; // Son skoru al
-        _currentHighScore =
-            gameState.highScore; // Güncel yüksek skoru Provider'dan al
-      });
-      print("GameScreen: Oyun bitti UI güncellendi.");
-    }
-  }
+// Yeni bir GameScreen widget sınıfı ekleniyor
+class GameScreen extends StatelessWidget {
+  const GameScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // print("GameScreen build çağrıldı. isLoading: $_isLoading, showGameOver: $_showGameOverOverlay, showPause: $_showPauseOverlay");
+    final gameState = Provider.of<GameState>(context);
 
     return Scaffold(
-      body: SizedBox.expand(
-        child: Stack(
-          children: [
-            // Oyun alanı
-            SizedBox.expand(
-              child: GameWidget<RunnerGame>(
-                game: _game!,
-                loadingBuilder: (context) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
-                overlayBuilderMap: {
-                  'pause_button': (context, game) {
-                    // Üst köşedeki duraklatma butonu
-                    return Positioned(
-                      top: 20,
-                      right: 20,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            game.isPaused
-                                ? game.resumeGame()
-                                : game.pauseGame();
-                          },
-                          borderRadius: BorderRadius.circular(30),
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.pause,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  'game_controls': (context, game) {
-                    // Ekran boyutlarını alalım
-                    final screenSize = MediaQuery.of(context).size;
-                    final isLandscape = screenSize.width > screenSize.height;
-
-                    // Buton boyutu hesapla
-                    final buttonSize = isLandscape
-                        ? screenSize.width * 0.10
-                        : screenSize.height * 0.12;
-
-                    return Stack(
-                      children: [
-                        // Tüm ekrana tıklama algılayıcı (zıplama için)
-                        Positioned.fill(
-                          child: GestureDetector(
-                            onTap: () {
-                              game.playerJump();
-                            },
-                            // Şeffaf container, üzerindeki butonun tıklamalarını engellemeyecek
-                            child: Container(color: Colors.transparent),
-                          ),
-                        ),
-
-                        // Sadece ateş etme butonu (sağ alt köşede)
-                        Positioned(
-                          bottom: 30,
-                          right: 30,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                game.playerShoot();
-                              },
-                              borderRadius:
-                                  BorderRadius.circular(buttonSize / 2),
-                              child: Container(
-                                width: buttonSize,
-                                height: buttonSize,
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.7),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.track_changes,
-                                  color: Colors.white,
-                                  size: buttonSize * 0.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                  'pause_menu': (context, game) {
-                    final screenSize = MediaQuery.of(context).size;
-                    final isLandscape = screenSize.width > screenSize.height;
-
-                    return Stack(
-                      children: [
-                        // Pause butonu
-                        Positioned(
-                          top: 30,
-                          right: 30,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                game.isPaused
-                                    ? game.resumeGame()
-                                    : game.pauseGame();
-                              },
-                              borderRadius: BorderRadius.circular(40),
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: Colors.black45,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  game.isPaused
-                                      ? Icons.play_arrow
-                                      : Icons.pause,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Duraklat menüsü (sadece duraklatıldığında göster)
-                        if (game.isPaused)
-                          Container(
-                            color: Colors.black54,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 40, vertical: 30),
-                                decoration: BoxDecoration(
-                                  color: Colors.black87,
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text(
-                                      'OYUN DURAKLATILDI',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 30),
-                                    // Devam butonu
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {
-                                          game.isPaused
-                                              ? game.resumeGame()
-                                              : game.pauseGame();
-                                        },
-                                        borderRadius: BorderRadius.circular(30),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 30, vertical: 15),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue,
-                                            borderRadius:
-                                                BorderRadius.circular(30),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.play_arrow,
-                                                color: Colors.white,
-                                              ),
-                                              SizedBox(width: 10),
-                                              Text(
-                                                'DEVAM ET',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 15),
-                                    // Baştan başla butonu
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {
-                                          game.restartGame();
-                                        },
-                                        borderRadius: BorderRadius.circular(30),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 30, vertical: 15),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green,
-                                            borderRadius:
-                                                BorderRadius.circular(30),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.refresh,
-                                                color: Colors.white,
-                                              ),
-                                              SizedBox(width: 10),
-                                              Text(
-                                                'YENİDEN BAŞLAT',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 15),
-                                    // Ana menüye dön butonu
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {
-                                          Navigator.of(context).pop();
-                                        },
-                                        borderRadius: BorderRadius.circular(30),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 30, vertical: 15),
-                                          decoration: BoxDecoration(
-                                            color: Colors.red,
-                                            borderRadius:
-                                                BorderRadius.circular(30),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.home,
-                                                color: Colors.white,
-                                              ),
-                                              SizedBox(width: 10),
-                                              Text(
-                                                'ANA MENÜ',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                  'game_over': (context, game) {
-                    return Positioned.fill(
-                      child: Container(
-                        color: Colors.black.withOpacity(0.8),
-                        child: Center(
-                          child: Card(
-                            color: Colors.white.withOpacity(0.9),
-                            elevation: 10,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Container(
-                              width: 300,
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'OYUN BİTTİ',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.red,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Text(
-                                    'Skor: ${game.score}',
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    'En Yüksek Skor: ${game.highScore}',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.blue,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 30),
-                                  _buildMenuButton(
-                                    context: context,
-                                    icon: Icons.refresh,
-                                    text: 'Tekrar Oyna',
-                                    onTap: () {
-                                      game.restartGame();
-                                    },
-                                  ),
-                                  const SizedBox(height: 15),
-                                  _buildMenuButton(
-                                    context: context,
-                                    icon: Icons.home,
-                                    text: 'Ana Menü',
-                                    onTap: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+      body: GameWidget.controlled(
+        initialActiveOverlays: const ['pause_button', 'game_controls'],
+        gameFactory: () => RunnerGame(
+          selectedCharacter: gameState.currentCharacter,
+          currentTheme: gameState.currentTheme,
+          currentLevel: gameState.currentLevel,
+          highScore: gameState.highScore,
+        ),
+        loadingBuilder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+        overlayBuilderMap: {
+          'pause_button': (context, RunnerGame runnerGame) {
+            return Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.pause, color: Colors.white),
+                onPressed: () {
+                  runnerGame.isPaused
+                      ? runnerGame.resumeGame()
+                      : runnerGame.pauseGame();
                 },
-                initialActiveOverlays: const ['pause_button', 'game_controls'],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+            );
+          },
+          'game_over': (context, RunnerGame runnerGame) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'GAME OVER',
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 5,
+                          color: Colors.black.withOpacity(0.7),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Score: ${runnerGame.score}',
+                    style: const TextStyle(
+                      fontSize: 30,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'High Score: ${runnerGame.highScore}',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      color: Colors.yellow,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 15,
+                      ),
+                    ),
+                    onPressed: () {
+                      runnerGame.restartGame();
+                    },
+                    child: const Text(
+                      'PLAY AGAIN',
+                      style: TextStyle(fontSize: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 15,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      'BACK TO MENU',
+                      style: TextStyle(fontSize: 20),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          'game_controls': (context, RunnerGame runnerGame) {
+            final screenSize = MediaQuery.of(context).size;
+            return Stack(
+              children: [
+                // Zıplama için sol yarıya tıklama algılayıcı
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: screenSize.width / 2,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      runnerGame.playerJump();
+                    },
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
 
-  @override
-  void dispose() {
-    print("GameScreen dispose ediliyor.");
-    // _game?.audioService
-    //     .dispose(); // _audioService -> audioService // dispose metodu çağrılabilir
-    _game?.removeFromParent();
-    _game = null;
-    super.dispose();
-  }
-
-  // Menü butonu oluşturan yardımcı metod
-  Widget _buildMenuButton({
-    required BuildContext context,
-    required IconData icon,
-    required String text,
-    required VoidCallback onTap,
-  }) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon),
-          const SizedBox(width: 10),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+                // Ateş etme butonu (sağ alt köşede)
+                Positioned(
+                  right: 20,
+                  bottom: 20,
+                  child: FloatingActionButton(
+                    heroTag: "fireButton",
+                    backgroundColor: Colors.red,
+                    onPressed: () {
+                      runnerGame.humanPlayer?.shoot();
+                    },
+                    child: const Icon(Icons.flash_on),
+                  ),
+                ),
+              ],
+            );
+          },
+        },
       ),
     );
   }

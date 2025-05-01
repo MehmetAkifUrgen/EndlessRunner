@@ -9,6 +9,8 @@ import '../../pages/game_screen.dart';
 import 'bullet_component.dart';
 import '../enemies/enemy_component.dart';
 import '../platforms/platform_component.dart';
+import '../obstacles/obstacle_component.dart';
+import '../collectibles/collectible_component.dart';
 
 enum PlayerState {
   running,
@@ -193,6 +195,20 @@ class HumanPlayerComponent extends PositionComponent
       takeDamage(other.enemy.attackDamage);
     }
 
+    // Engel ile çarpışma kontrolü eklendi
+    if (other is ObstacleComponent && !isInvulnerable) {
+      if (gameRef.hasShield) {
+        gameRef.hasShield = false; // Kalkanı kaldır
+        // Kalkan sesi vb. eklenebilir
+        other.removeFromParent(); // Engeli kaldır
+        gameRef.obstacles.remove(other);
+      } else {
+        takeDamage(1); // 1 birim hasar ver (can azaltır ve dokunulmazlık verir)
+        other.removeFromParent(); // Engeli kaldır
+        gameRef.obstacles.remove(other);
+      }
+    }
+
     // Platforma çarpma/üzerinde durma
     if (other is PlatformComponent) {
       // Eğer karakterin alt kısmı platformun üst kısmına değiyorsa
@@ -228,6 +244,11 @@ class HumanPlayerComponent extends PositionComponent
             break;
         }
       }
+    }
+
+    // Toplanabilir öğelere çarpma (coin, güçlendirici, vb.)
+    if (other is CollectibleComponent) {
+      gameRef.handleCollision(other);
     }
   }
 
@@ -330,6 +351,12 @@ class HumanPlayerComponent extends PositionComponent
         reload();
       }
 
+      // gameRef null kontrolü ekleyelim
+      if (gameRef == null) {
+        print("HATA: gameRef null - ateş edilemiyor");
+        return;
+      }
+
       // Merminin çıkış konumunu hesapla (karakterin ön tarafından)
       final bulletPosition = Vector2(
         position.x + size.x * 0.3, // Silahın namlu pozisyonu
@@ -358,7 +385,10 @@ class HumanPlayerComponent extends PositionComponent
       // gameRef.audioService.playSfx('shoot_${currentWeapon.type.toString().split('.').last}');
 
       // Ateş etme parçacık efekti (namlu parlaması vb.)
-      _createMuzzleFlash(bulletPosition);
+      // Parçacık sistemi null kontrolü ekleyelim
+      if (gameRef.particleSystem != null) {
+        _createMuzzleFlash(bulletPosition);
+      }
     }
     // Mermi yoksa yeniden doldur
     else if (!ammoSystem.canShoot()) {
@@ -461,216 +491,358 @@ class HumanPlayerComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    // Daha detaylı insan figürü çiz
     canvas.save();
 
-    // Cinsiyete göre değişik karakterler (rastgele atadık)
-    final isMale = character.id == 'ninja' ||
-        character.id == 'soldier' ||
-        character.id == 'knight';
+    // Koşma animasyonu için zaman hesaplama
+    final runningTime = DateTime.now().millisecondsSinceEpoch / 150;
+    final legOffset =
+        state == PlayerState.running ? math.sin(runningTime) * 12 : 0;
+    final armOffset =
+        state == PlayerState.running ? math.cos(runningTime) * 10 : 0;
+    final isJumpingOrFalling = state == PlayerState.jumping ||
+        state == PlayerState.doubleJumping ||
+        state == PlayerState.falling;
 
-    // Gövde
-    final bodyPaint = Paint()..color = primaryColor;
-    final bodyRect =
-        Rect.fromLTWH(size.x * 0.3, size.y * 0.3, size.x * 0.4, size.y * 0.38);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bodyRect, Radius.circular(size.x * 0.1)),
-      bodyPaint,
-    );
+    // ------ NİNJA KARAKTERİ ÇİZİMİ ------
 
-    // Kafa
-    final headPaint = Paint()..color = Color(0xFFFAD7C0); // ten rengi
-    final headCenter = Offset(size.x * 0.5, size.y * 0.18);
-    final headRadius = size.x * 0.18;
-    canvas.drawCircle(headCenter, headRadius, headPaint);
+    // Gölge efekti
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5);
 
-    // Saç
-    final hairPaint = Paint()..color = Colors.brown.shade800;
-    if (isMale) {
-      // Erkek saç stili
-      final hairPath = Path();
-      hairPath.moveTo(
-          headCenter.dx - headRadius, headCenter.dy - headRadius * 0.5);
-      hairPath.lineTo(headCenter.dx - headRadius, headCenter.dy - headRadius);
-      hairPath.lineTo(headCenter.dx + headRadius, headCenter.dy - headRadius);
-      hairPath.lineTo(
-          headCenter.dx + headRadius, headCenter.dy - headRadius * 0.5);
-      hairPath.close();
-      canvas.drawPath(hairPath, hairPaint);
-    } else {
-      // Kadın saç stili (daha uzun)
-      final hairPath = Path();
-      hairPath.moveTo(
-          headCenter.dx - headRadius, headCenter.dy - headRadius * 0.2);
-      hairPath.lineTo(headCenter.dx - headRadius, headCenter.dy - headRadius);
-      hairPath.lineTo(headCenter.dx + headRadius, headCenter.dy - headRadius);
-      hairPath.lineTo(
-          headCenter.dx + headRadius, headCenter.dy - headRadius * 0.2);
-      hairPath.close();
-      canvas.drawPath(hairPath, hairPaint);
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(size.x * 0.5, size.y * 0.97),
+            width: size.x * 0.6,
+            height: size.y * 0.1),
+        shadowPaint);
 
-      // Saçın yan kısımları
-      canvas.drawRect(
-          Rect.fromLTWH(headCenter.dx - headRadius - 2,
-              headCenter.dy - headRadius * 0.5, 4, headRadius * 1.2),
-          hairPaint);
-      canvas.drawRect(
-          Rect.fromLTWH(headCenter.dx + headRadius - 2,
-              headCenter.dy - headRadius * 0.5, 4, headRadius * 1.2),
-          hairPaint);
-    }
+    // Renk şeması - karakter renklerini değişkenlere atayarak daha kolay güncelleme
+    final ninjaMainColor = Colors.black;
+    final ninjaAccentColor = Colors.red.shade800;
+    final ninjaSkinColor = Color(0xFFE6C8A9);
 
-    // Gözler
-    final eyePaint = Paint()..color = Colors.white;
-    final pupilPaint = Paint()..color = Colors.black;
+    // ---- VÜCUT BÖLÜMLERİ ----
 
-    // Sol göz
-    canvas.drawCircle(
-        Offset(
-            headCenter.dx - headRadius * 0.4, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.18,
-        eyePaint);
-    canvas.drawCircle(
-        Offset(
-            headCenter.dx - headRadius * 0.4, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.08,
-        pupilPaint);
-
-    // Sağ göz
-    canvas.drawCircle(
-        Offset(
-            headCenter.dx + headRadius * 0.4, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.18,
-        eyePaint);
-    canvas.drawCircle(
-        Offset(
-            headCenter.dx + headRadius * 0.4, headCenter.dy - headRadius * 0.1),
-        headRadius * 0.08,
-        pupilPaint);
-
-    // Ağız
-    final mouthPaint = Paint()
-      ..color = Colors.red.shade900
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    final mouthPath = Path();
-    mouthPath.moveTo(
-        headCenter.dx - headRadius * 0.3, headCenter.dy + headRadius * 0.3);
-    mouthPath.quadraticBezierTo(headCenter.dx, headCenter.dy + headRadius * 0.5,
-        headCenter.dx + headRadius * 0.3, headCenter.dy + headRadius * 0.3);
-    canvas.drawPath(mouthPath, mouthPaint);
-
-    // Kollar ve bacaklar
-    final limbPaint = Paint()..color = secondaryColor;
-
-    // Sol kol
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.2, size.y * 0.35, size.x * 0.1, size.y * 0.25),
-            Radius.circular(size.x * 0.05)),
-        limbPaint);
-
-    // Sağ kol - silah tutma pozisyonu
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.7, size.y * 0.35, size.x * 0.1, size.y * 0.25),
-            Radius.circular(size.x * 0.05)),
-        limbPaint);
+    // Bacaklar - koşma animasyonlu
+    final legPaint = Paint()..color = ninjaMainColor;
 
     // Sol bacak
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.33, size.y * 0.68, size.x * 0.14, size.y * 0.32),
-            Radius.circular(size.x * 0.05)),
-        limbPaint);
+    final leftLegPath = Path();
+    final leftLegY = isJumpingOrFalling ? 10 : legOffset;
+    leftLegPath.moveTo(size.x * 0.4, size.y * 0.6);
+    leftLegPath.quadraticBezierTo(
+        size.x * 0.35,
+        size.y * (0.75 + leftLegY / 100),
+        size.x * 0.3,
+        size.y * (0.95 + leftLegY / 100));
+    leftLegPath.lineTo(size.x * 0.4, size.y * (0.95 + leftLegY / 100));
+    leftLegPath.quadraticBezierTo(size.x * 0.42,
+        size.y * (0.75 + leftLegY / 100), size.x * 0.45, size.y * 0.6);
+    leftLegPath.close();
+    canvas.drawPath(leftLegPath, legPaint);
 
     // Sağ bacak
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-                size.x * 0.53, size.y * 0.68, size.x * 0.14, size.y * 0.32),
-            Radius.circular(size.x * 0.05)),
-        limbPaint);
+    final rightLegPath = Path();
+    final rightLegY = isJumpingOrFalling ? 10 : -legOffset;
+    rightLegPath.moveTo(size.x * 0.55, size.y * 0.6);
+    rightLegPath.quadraticBezierTo(
+        size.x * 0.6,
+        size.y * (0.75 + rightLegY / 100),
+        size.x * 0.65,
+        size.y * (0.95 + rightLegY / 100));
+    rightLegPath.lineTo(size.x * 0.55, size.y * (0.95 + rightLegY / 100));
+    rightLegPath.quadraticBezierTo(size.x * 0.52,
+        size.y * (0.75 + rightLegY / 100), size.x * 0.5, size.y * 0.6);
+    rightLegPath.close();
+    canvas.drawPath(rightLegPath, legPaint);
 
-    // Silah çizimi (sağ kolun ucunda)
-    final weaponPaint = Paint()..color = Colors.grey.shade800;
+    // Vücut - siyah ninja giysisi
+    final bodyPaint = Paint()..color = ninjaMainColor;
+    final bodyPath = Path();
+    bodyPath.moveTo(size.x * 0.4, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.6, size.y * 0.6);
+    bodyPath.lineTo(size.x * 0.65, size.y * 0.3);
+    bodyPath.quadraticBezierTo(
+        size.x * 0.5, size.y * 0.25, size.x * 0.35, size.y * 0.3);
+    bodyPath.close();
+    canvas.drawPath(bodyPath, bodyPaint);
 
-    if (currentWeapon.type == WeaponType.pistol) {
-      // Tabanca
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                  size.x * 0.78, size.y * 0.4, size.x * 0.2, size.y * 0.08),
-              Radius.circular(size.x * 0.02)),
-          weaponPaint);
-      // Tabanca sapı
-      canvas.drawRect(
-          Rect.fromLTWH(
-              size.x * 0.82, size.y * 0.4, size.x * 0.06, size.y * 0.15),
-          weaponPaint);
-    } else if (currentWeapon.type == WeaponType.rifle) {
-      // Tüfek
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                  size.x * 0.78, size.y * 0.38, size.x * 0.35, size.y * 0.07),
-              Radius.circular(size.x * 0.01)),
-          weaponPaint);
-      // Tüfek sapı
-      canvas.drawRect(
-          Rect.fromLTWH(
-              size.x * 0.85, size.y * 0.38, size.x * 0.06, size.y * 0.15),
-          weaponPaint);
-    } else if (currentWeapon.type == WeaponType.shotgun) {
-      // Pompalı
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                  size.x * 0.78, size.y * 0.37, size.x * 0.3, size.y * 0.1),
-              Radius.circular(size.x * 0.01)),
-          weaponPaint);
-      // Pompalı sapı
-      canvas.drawRect(
-          Rect.fromLTWH(
-              size.x * 0.85, size.y * 0.37, size.x * 0.07, size.y * 0.18),
-          weaponPaint);
-    } else if (currentWeapon.type == WeaponType.laserGun) {
-      // Lazer silahı
-      final laserGunPaint = Paint()..color = Colors.blue.shade700;
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                  size.x * 0.78, size.y * 0.37, size.x * 0.25, size.y * 0.1),
-              Radius.circular(size.x * 0.05)),
-          laserGunPaint);
-      // Lazer ucu
-      final laserTipPaint = Paint()..color = Colors.blue.shade400;
-      canvas.drawCircle(
-          Offset(size.x * 1.03, size.y * 0.42), size.x * 0.04, laserTipPaint);
-    }
+    // Kemeri çiz - aksesuar
+    final beltPaint = Paint()..color = ninjaAccentColor;
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.38, size.y * 0.55, size.x * 0.24, size.y * 0.05),
+        beltPaint);
+
+    // Kafa - oval ninja maskesi
+    final headPaint = Paint()..color = ninjaMainColor;
+    canvas.drawCircle(
+        Offset(size.x * 0.5, size.y * 0.2), size.x * 0.15, headPaint);
+
+    // Yüz açıklığı - ten rengi görünen kısım
+    final facePaint = Paint()..color = ninjaSkinColor;
+    final facePath = Path();
+    facePath.addOval(Rect.fromLTWH(
+        size.x * 0.4, size.y * 0.14, size.x * 0.2, size.y * 0.12));
+    canvas.drawPath(facePath, facePaint);
+
+    // Gözler - keskin ninja bakışı
+    final eyePaint = Paint()..color = Colors.white;
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.42, size.y * 0.17, size.x * 0.06, size.y * 0.06),
+        eyePaint);
+    canvas.drawOval(
+        Rect.fromLTWH(
+            size.x * 0.52, size.y * 0.17, size.x * 0.06, size.y * 0.06),
+        eyePaint);
+
+    // Göz bebekleri - duruma göre hareket eden
+    final lookDirection = state == PlayerState.dashing ? 0.02 : 0.0;
+    final pupilPaint = Paint()..color = Colors.black;
+    canvas.drawCircle(Offset(size.x * (0.45 + lookDirection), size.y * 0.2),
+        size.x * 0.02, pupilPaint);
+    canvas.drawCircle(Offset(size.x * (0.55 + lookDirection), size.y * 0.2),
+        size.x * 0.02, pupilPaint);
+
+    // Kafa bandı - ninja temaya uygun
+    final headbandPaint = Paint()..color = ninjaAccentColor;
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.35, size.y * 0.13, size.x * 0.3, size.y * 0.04),
+        headbandPaint);
+
+    // Kafa bandı bağları - rüzgarda savrulan
+    final bandTailPath = Path();
+    final windEffect = math.sin(_getAnimationTime() * 2) * 5;
+    bandTailPath.moveTo(size.x * 0.65, size.y * 0.15);
+    bandTailPath.quadraticBezierTo(size.x * (0.7 + windEffect / 100),
+        size.y * 0.18, size.x * (0.75 + windEffect / 100), size.y * 0.15);
+    bandTailPath.lineTo(size.x * (0.75 + windEffect / 100), size.y * 0.13);
+    bandTailPath.quadraticBezierTo(size.x * (0.7 + windEffect / 100),
+        size.y * 0.16, size.x * 0.65, size.y * 0.13);
+    bandTailPath.close();
+    canvas.drawPath(bandTailPath, headbandPaint);
+
+    // Kollar - koşma animasyonlu
+    final armPaint = Paint()..color = ninjaMainColor;
+
+    // Sol kol - silah tutan
+    final leftArmPath = Path();
+    leftArmPath.moveTo(size.x * 0.4, size.y * 0.35);
+    leftArmPath.quadraticBezierTo(
+        size.x * (0.3 - armOffset / 100),
+        size.y * (0.4 - armOffset / 100),
+        size.x * (0.25 - armOffset / 100),
+        size.y * (0.5 - armOffset / 100));
+    leftArmPath.lineTo(
+        size.x * (0.3 - armOffset / 100), size.y * (0.55 - armOffset / 100));
+    leftArmPath.quadraticBezierTo(size.x * (0.35 - armOffset / 100),
+        size.y * (0.45 - armOffset / 100), size.x * 0.4, size.y * 0.4);
+    leftArmPath.close();
+    canvas.drawPath(leftArmPath, armPaint);
+
+    // Sağ kol - silah tutan
+    final rightArmPath = Path();
+    rightArmPath.moveTo(size.x * 0.6, size.y * 0.35);
+    rightArmPath.quadraticBezierTo(size.x * (0.65 + armOffset / 100),
+        size.y * 0.4, size.x * (0.7 + armOffset / 100), size.y * 0.45);
+    rightArmPath.lineTo(size.x * (0.7 + armOffset / 100), size.y * 0.5);
+    rightArmPath.quadraticBezierTo(size.x * (0.65 + armOffset / 100),
+        size.y * 0.45, size.x * 0.6, size.y * 0.42);
+    rightArmPath.close();
+    canvas.drawPath(rightArmPath, armPaint);
+
+    // Silah çizimi - silah tipine göre farklı
+    _renderWeapon(canvas, size, currentWeapon.type);
 
     // Dokunulmazlık efekti
     if (isInvulnerable) {
-      final shieldPaint = Paint()
-        ..color = Colors.blue.withOpacity(0.3)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
-
-      if ((invulnerabilityTimer * 10).floor() % 2 == 0) {
-        canvas.drawCircle(
-            Offset(size.x * 0.5, size.y * 0.4), size.x * 0.6, shieldPaint);
-      }
+      _renderInvulnerabilityEffect(canvas, size, invulnerabilityTimer);
     }
 
     // Vurulma efekti
     if (hitAnimationTimer > 0) {
-      final hitPaint = Paint()..color = Colors.red.withOpacity(0.3);
-      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), hitPaint);
+      _renderHitEffect(canvas, size, hitAnimationTimer);
     }
 
     canvas.restore();
+  }
+
+  // Silah çizim metodu - silah tipine göre farklı tasarımlar
+  void _renderWeapon(Canvas canvas, Vector2 size, WeaponType type) {
+    switch (type) {
+      case WeaponType.pistol:
+        _renderPistol(canvas, size);
+        break;
+      case WeaponType.rifle:
+        _renderRifle(canvas, size);
+        break;
+      case WeaponType.shotgun:
+        _renderShotgun(canvas, size);
+        break;
+      case WeaponType.laserGun:
+        _renderLaserGun(canvas, size);
+        break;
+      default:
+        _renderPistol(canvas, size);
+    }
+  }
+
+  void _renderPistol(Canvas canvas, Vector2 size) {
+    final gunPaint = Paint()..color = Colors.grey.shade800;
+
+    // Tabanca gövdesi
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                size.x * 0.68, size.y * 0.44, size.x * 0.2, size.y * 0.08),
+            Radius.circular(3)),
+        gunPaint);
+
+    // Kabza
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.7, size.y * 0.44, size.x * 0.04, size.y * 0.15),
+        gunPaint);
+
+    // Namlu
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.84, size.y * 0.42, size.x * 0.1, size.y * 0.05),
+        gunPaint);
+  }
+
+  void _renderRifle(Canvas canvas, Vector2 size) {
+    final gunPaint = Paint()..color = Colors.grey.shade700;
+
+    // Tüfek gövdesi
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                size.x * 0.68, size.y * 0.43, size.x * 0.35, size.y * 0.07),
+            Radius.circular(2)),
+        gunPaint);
+
+    // Namlu
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.97, size.y * 0.42, size.x * 0.15, size.y * 0.04),
+        gunPaint);
+
+    // Dipçik
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                size.x * 0.68, size.y * 0.45, size.x * 0.05, size.y * 0.15),
+            Radius.circular(2)),
+        gunPaint);
+
+    // Şarjör
+    canvas.drawRect(
+        Rect.fromLTWH(size.x * 0.8, size.y * 0.5, size.x * 0.04, size.y * 0.1),
+        Paint()..color = Colors.grey.shade600);
+  }
+
+  void _renderShotgun(Canvas canvas, Vector2 size) {
+    final gunPaint = Paint()..color = Colors.brown.shade800;
+
+    // Pompalı gövde
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                size.x * 0.68, size.y * 0.42, size.x * 0.3, size.y * 0.1),
+            Radius.circular(3)),
+        gunPaint);
+
+    // Uzun namlu
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.94, size.y * 0.43, size.x * 0.2, size.y * 0.04),
+        gunPaint);
+
+    // Dipçik
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                size.x * 0.68, size.y * 0.47, size.x * 0.06, size.y * 0.12),
+            Radius.circular(3)),
+        gunPaint);
+
+    // Metal detaylar
+    canvas.drawRect(
+        Rect.fromLTWH(
+            size.x * 0.75, size.y * 0.42, size.x * 0.02, size.y * 0.1),
+        Paint()..color = Colors.grey.shade700);
+  }
+
+  void _renderLaserGun(Canvas canvas, Vector2 size) {
+    final gunPaint = Paint()..color = Colors.blue.shade800;
+
+    // Lazer gövdesi
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                size.x * 0.68, size.y * 0.4, size.x * 0.25, size.y * 0.1),
+            Radius.circular(5)),
+        gunPaint);
+
+    // Lazer namlu
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                size.x * 0.9, size.y * 0.43, size.x * 0.15, size.y * 0.04),
+            Radius.circular(5)),
+        Paint()..color = Colors.blue.shade500);
+
+    // Enerji hücresi
+    canvas.drawCircle(Offset(size.x * 0.75, size.y * 0.45), size.x * 0.05,
+        Paint()..color = Colors.blue.shade300);
+
+    // Enerji ışık efekti
+    canvas.drawCircle(
+        Offset(size.x * 1.05, size.y * 0.45),
+        size.x * 0.03,
+        Paint()
+          ..color = Colors.lightBlue.shade100
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5));
+  }
+
+  void _renderInvulnerabilityEffect(Canvas canvas, Vector2 size, double timer) {
+    if ((timer * 10).floor() % 2 == 0) {
+      final shieldPaint = Paint()
+        ..color = Colors.blue.withOpacity(0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0;
+
+      // Dalgalı kalkan efekti
+      final shieldRadius = size.x * 0.6 + math.sin(_getAnimationTime() * 3) * 5;
+      canvas.drawCircle(
+          Offset(size.x * 0.5, size.y * 0.4), shieldRadius, shieldPaint);
+
+      // Enerji dalgaları
+      final energyPaint = Paint()
+        ..color = Colors.blue.withOpacity(0.2)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3);
+      canvas.drawCircle(
+          Offset(size.x * 0.5, size.y * 0.4), shieldRadius * 0.8, energyPaint);
+    }
+  }
+
+  void _renderHitEffect(Canvas canvas, Vector2 size, double timer) {
+    final hitPaint = Paint()..color = Colors.red.withOpacity(0.3);
+
+    // Darbe etkisi - dalga şeklinde yayılan
+    final waveRadius = size.x * (1 - timer) * 2;
+    canvas.drawCircle(Offset(size.x * 0.5, size.y * 0.4), waveRadius, hitPaint);
+
+    // Tüm karakter üzerine kırmızı vurgu
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()..color = Colors.red.withOpacity(0.2));
+  }
+
+  double _getAnimationTime() {
+    return DateTime.now().millisecondsSinceEpoch / 300;
   }
 }

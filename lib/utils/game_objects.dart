@@ -48,6 +48,20 @@ class GameObjects {
           paint: Paint()..color = Colors.black,
           anchor: Anchor.bottomLeft,
         );
+
+      // Yeni engel türleri için varsayılan durumlar
+      case ObstacleType.spikes:
+      case ObstacleType.laserGrid:
+      case ObstacleType.fireWall:
+      case ObstacleType.electricField:
+      case ObstacleType.movingBlade:
+      case ObstacleType.drone:
+        // Temel bir bileşen döndür
+        return RectangleComponent(
+          size: Vector2(50, 50),
+          paint: Paint()..color = Colors.redAccent,
+          anchor: Anchor.bottomLeft,
+        );
     }
   }
 

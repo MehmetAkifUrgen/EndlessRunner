@@ -10,7 +10,7 @@ class ParticleSystem extends Component {
   final int maxParticles;
   final math.Random random = math.Random();
 
-  ParticleSystem({this.maxParticles = 200});
+  ParticleSystem({this.maxParticles = 50});
 
   @override
   void update(double dt) {
@@ -37,8 +37,8 @@ class ParticleSystem extends Component {
     final currentParticles = particles.length;
 
     // Çok sayıda parçacık varsa hepsini işleme - FPS düşüşünü önlemek için
-    final toRender = currentParticles > 100
-        ? particles.sublist(currentParticles - 100)
+    final toRender = currentParticles > 30
+        ? particles.sublist(currentParticles - 30)
         : particles;
 
     for (var particle in toRender) {

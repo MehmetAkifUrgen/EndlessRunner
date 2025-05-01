@@ -17,7 +17,7 @@ class AmmoCollectibleComponent extends PositionComponent
   bool isCollected = false;
   bool isFadingOut = false;
   double fadeOutTimer = 0.5; // Toplayınca 0.5 saniye kaybolma animasyonu
-  
+
   final Paint _paint = Paint()..color = Colors.orange;
   final Paint _borderPaint = Paint()
     ..color = Colors.black
@@ -65,7 +65,8 @@ class AmmoCollectibleComponent extends PositionComponent
     // Yüzen hareket animasyonu
     lifeTime += dt;
     angle += rotationSpeed * dt; // Dönme animasyonu
-    position.y += math.sin(floatOffset + lifeTime * floatSpeed) * 0.5; // Yüzme animasyonu
+    position.y +=
+        math.sin(floatOffset + lifeTime * floatSpeed) * 0.5; // Yüzme animasyonu
 
     // Maksimum yaşam süresi dolduğunda yok et
     if (lifeTime >= maxLifeTime) {
@@ -77,51 +78,51 @@ class AmmoCollectibleComponent extends PositionComponent
   void render(Canvas canvas) {
     // Mermi kutusu çiz
     canvas.save();
-    
+
     // Kutu gövdesi
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.x, size.y),
       _paint,
     );
-    
+
     // Kutu kenarları
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.x, size.y),
       _borderPaint,
     );
-    
+
     // Mermi simgesi
     final bulletPaint = Paint()..color = Colors.yellow;
     final bulletBorderPaint = Paint()
       ..color = Colors.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-    
+
     // Üst taraftaki mermiler
     for (int i = 0; i < 3; i++) {
       final bulletX = size.x * 0.25 + (i * size.x * 0.25);
       final bulletY = size.y * 0.3;
       final bulletWidth = size.x * 0.15;
       final bulletHeight = size.y * 0.3;
-      
+
       canvas.drawRect(
         Rect.fromLTWH(bulletX, bulletY, bulletWidth, bulletHeight),
         bulletPaint,
       );
-      
+
       canvas.drawRect(
         Rect.fromLTWH(bulletX, bulletY, bulletWidth, bulletHeight),
         bulletBorderPaint,
       );
     }
-    
+
     canvas.restore();
   }
 
   void collect() {
     if (!isCollected) {
       isCollected = true;
-      
+
       // Parçacık efekti oluştur
       if (gameRef.particleSystem != null) {
         gameRef.particleSystem!.createExplosion(
@@ -130,9 +131,9 @@ class AmmoCollectibleComponent extends PositionComponent
           count: 20,
         );
       }
-      
-      // Ses efekti
-     // gameRef.audioService.playSfx(SoundEffect.collect);
+
+      // Ses efekti - kaldırıldı
+      // gameRef.audioService.playSfx(SoundEffect.collect);
     }
   }
 
@@ -144,7 +145,7 @@ class AmmoCollectibleComponent extends PositionComponent
     if (other is HumanPlayerComponent && !isCollected) {
       // Mermi ekle
       gameRef.addAmmo(ammoAmount);
-      
+
       // Toplandı olarak işaretle
       collect();
     }
