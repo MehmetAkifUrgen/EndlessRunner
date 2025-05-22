@@ -84,6 +84,26 @@ class HumanPlayerComponent extends PositionComponent
     }
   }
 
+  // Yeni hareket özellikleri
+  bool canWallJump = false;
+  bool isWallSliding = false;
+  bool canAirControl = false;
+  bool isClimbing = false;
+
+  // Hava kontrolü için değişkenler
+  double airControlForce = 0.0;
+  double maxAirControlSpeed = 0.0;
+
+  // Tırmanma için değişkenler
+  bool isTouchingClimbableSurface = false;
+  double climbSpeed = 0.0;
+
+  // Kayma kombinasyonları
+  bool canSlideLeft = false;
+  bool canSlideRight = false;
+  bool canSlideUp = false;
+  bool canSlideDown = false;
+
   HumanPlayerComponent({
     required Vector2 position,
     required this.character,

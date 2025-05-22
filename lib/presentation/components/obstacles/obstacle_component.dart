@@ -391,7 +391,7 @@ class ObstacleComponent extends PositionComponent
     // Lazer cihazları (üst ve alt)
     final devicePaint = Paint()..color = Colors.grey.shade800;
 
-    // Üst cihaz
+    // Üst cihaz - y pozisyonunu 0'a ayarla
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, -size.y, size.x, size.y * 0.15),
@@ -400,7 +400,7 @@ class ObstacleComponent extends PositionComponent
       devicePaint,
     );
 
-    // Alt cihaz
+    // Alt cihaz - y pozisyonunu 0'a ayarla
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, -size.y * 0.15, size.x, size.y * 0.15),
@@ -712,12 +712,11 @@ class ObstacleComponent extends PositionComponent
       _shadowPaint,
     );
 
-    // Drone gövdesi
+    // Drone gövdesi - y pozisyonunu 0'a ayarla
     final bodyPaint = Paint()..color = Colors.grey.shade800;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(size.x * 0.2, -size.y * 0.5 - hoverOffset, size.x * 0.6,
-            size.y * 0.2),
+        Rect.fromLTWH(size.x * 0.2, -size.y * 0.5, size.x * 0.6, size.y * 0.2),
         const Radius.circular(5),
       ),
       bodyPaint,
@@ -729,7 +728,7 @@ class ObstacleComponent extends PositionComponent
     // Sol pervane
     _renderDronePropeller(
       canvas,
-      Offset(size.x * 0.25, -size.y * 0.5 - hoverOffset),
+      Offset(size.x * 0.25, -size.y * 0.5),
       _animTime * 20,
       wingPaint,
     );
@@ -737,7 +736,7 @@ class ObstacleComponent extends PositionComponent
     // Sağ pervane
     _renderDronePropeller(
       canvas,
-      Offset(size.x * 0.75, -size.y * 0.5 - hoverOffset),
+      Offset(size.x * 0.75, -size.y * 0.5),
       _animTime * 20 + math.pi,
       wingPaint,
     );
@@ -748,13 +747,13 @@ class ObstacleComponent extends PositionComponent
       ..color = Colors.red.withOpacity(0.7 + lightPulse * 0.3);
 
     canvas.drawCircle(
-      Offset(size.x * 0.3, -size.y * 0.45 - hoverOffset),
+      Offset(size.x * 0.3, -size.y * 0.45),
       size.x * 0.03,
       lightPaint,
     );
 
     canvas.drawCircle(
-      Offset(size.x * 0.7, -size.y * 0.45 - hoverOffset),
+      Offset(size.x * 0.7, -size.y * 0.45),
       size.x * 0.03,
       lightPaint,
     );
@@ -762,7 +761,7 @@ class ObstacleComponent extends PositionComponent
     // Kamera lens
     final cameraPaint = Paint()..color = Colors.black;
     canvas.drawCircle(
-      Offset(size.x * 0.5, -size.y * 0.4 - hoverOffset),
+      Offset(size.x * 0.5, -size.y * 0.4),
       size.x * 0.05,
       cameraPaint,
     );
@@ -770,7 +769,7 @@ class ObstacleComponent extends PositionComponent
     // Lens yansıması
     final lensPaint = Paint()..color = Colors.blue.withOpacity(0.8);
     canvas.drawCircle(
-      Offset(size.x * 0.5, -size.y * 0.4 - hoverOffset),
+      Offset(size.x * 0.5, -size.y * 0.4),
       size.x * 0.02,
       lensPaint,
     );

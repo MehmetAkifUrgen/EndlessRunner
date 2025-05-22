@@ -499,20 +499,13 @@ class RunnerGame extends FlameGame
       final obstacleType = ObstacleType.values[
           random.nextInt(ObstacleType.values.length)]; // Rastgele engel türü
 
-      // Rastgele Y pozisyonu belirle
-      double obstacleY;
-      if (random.nextBool()) {
-        // %50 ihtimalle zeminde
-        obstacleY = size.y - groundHeight;
-      } else {
-        // %50 ihtimalle biraz yukarıda (kayarak geçilebilir?)
-        obstacleY = size.y - groundHeight - 60;
-      }
+      // Engeli her zaman zeminde oluştur
+      final obstacleY = size.y - groundHeight;
 
       final obstacle = ObstacleComponent(
-        position: Vector2(size.x + 50, obstacleY), // Güncellenmiş Y pozisyonu
+        position: Vector2(size.x + 50, obstacleY),
         type: obstacleType,
-        color: currentTheme?.obstacleColor ?? Colors.brown, // Tema rengi
+        color: currentTheme?.obstacleColor ?? Colors.brown,
         game: this,
       );
       obstacles.add(obstacle);
